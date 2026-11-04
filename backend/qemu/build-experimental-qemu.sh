@@ -66,6 +66,15 @@ else
   echo "SENS patch already applied (idempotent): $APPLY_MARKER"
 fi
 
+APPLY_MARKER2="$SOURCE_DIR/.protopandaemu-spi-dummy-patch-applied"
+if [[ ! -f "$APPLY_MARKER2" ]]; then
+  echo "+ applying SPI dummy I/O scaling patch (FFat/WL read fix)"
+  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0003-esp32s3-spi-dummy-io-scaling.patch"
+  touch "$APPLY_MARKER2"
+else
+  echo "SPI dummy patch already applied (idempotent): $APPLY_MARKER2"
+fi
+
 cd "$SOURCE_DIR"
 if [[ ! -f build/build.ninja ]]; then
   echo "+ configure"

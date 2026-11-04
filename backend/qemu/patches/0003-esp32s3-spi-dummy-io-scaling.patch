@@ -1,0 +1,56 @@
+--- a/hw/ssi/esp32s3_spi.c
++++ b/hw/ssi/esp32s3_spi.c
+@@ -38,6 +38,9 @@
+     CMD_WRDI = 0x4,
+     CMD_WREN = 0x6,
+     CMD_READ = 0x03,
++    CMD_DIOR = 0xbb,
++    CMD_QIOR = 0xeb,
++    CMD_QIOR4 = 0xec,
+     CMD_HPM = 0xa3,
+ };
+ 
+@@ -210,20 +213,23 @@
+     *len = (address_len + 1) / 8;
+ }
+ 
+-static inline void esp32s3_spi_get_dummy(ESP32S3SpiState *s, uint32_t* len)
++/* Dual/Quad I/O commands run their dummy phase on 2/4 data lines respectively:
++ * each dummy cycle then carries 2/4 bits. The emulated SPI flash counts dummy
++ * phase in *bytes*, so scale the cycle count by the line width before rounding
++ * up. For example QIOR with 6 dummy cycles = 6*4 = 24 bits = 3 bytes, which is
++ * what the m25p80 models expect before entering the data-out phase. */
++static inline void esp32s3_spi_get_dummy_io(ESP32S3SpiState *s, uint32_t cmd, uint32_t* len)
+ {
+     const uint32_t dummy_count = FIELD_EX32(s->mem_user1, SPI_MEM_USER1, USR_DUMMY_CYCLELEN);
++    uint32_t bits_per_cycle = 1;
++
++    if (cmd == CMD_QIOR || cmd == CMD_QIOR4) {
++        bits_per_cycle = 4;
++    } else if (cmd == CMD_DIOR) {
++        bits_per_cycle = 2;
++    }
+ 
+-    /* Dummy cycles are interpreted as bytes by the emulated SPI Flash. As such, we shall convert
+-     * our dummy cycles count in bytes, rounding it up. For example:
+-     * 0 cycles = 0 byte
+-     * 1 cycle = 1 byte
+-     * ...
+-     * 8 cycles = 1 byte
+-     * 9 cycles = 2 bytes
+-     * etc..
+-     */
+-    *len = (dummy_count + 7) / 8;
++    *len = (dummy_count * bits_per_cycle + 7) / 8;
+ }
+ 
+ static void esp32s3_spi_begin_transaction(ESP32S3SpiState *s)
+@@ -260,7 +266,7 @@
+ 
+         /* Only calculate and include dummy cycles when the USR_DUMMY bit is set! */
+         if (s->mem_user & R_SPI_MEM_USER_USR_DUMMY_MASK) {
+-            esp32s3_spi_get_dummy(s, &t.dummy_bytes);
++            esp32s3_spi_get_dummy_io(s, t.cmd, &t.dummy_bytes);
+         }
+     }
+ 
