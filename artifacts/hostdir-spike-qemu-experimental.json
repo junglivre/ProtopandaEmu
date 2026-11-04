@@ -1,0 +1,286 @@
+{
+  "backend": "qemu",
+  "backend_artifact": {
+    "archive_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-build-inputs/qemu-source.tar.xz",
+    "archive_sha256": "66015182274b9fda7d3c7f19e8f160e6e23947217cc149c7aa97e1586dfc6198",
+    "commit": "40edccac415693c5130f91c01d84176ae6008566",
+    "patches": [
+      "0001-esp32s3.c.patch",
+      "0002-hw-misc-meson.build.patch",
+      "0003-esp32s3-spi-dummy-io-scaling.patch",
+      "0004-esp32s3-toy-hub75-oled.patch",
+      "0005-esp32-gpio-input-default-high.patch"
+    ],
+    "path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa",
+    "repo": "https://github.com/espressif/qemu",
+    "sha256": "6751b1308c186f5fc60a7897ec4a0b9329cb89410402e09b4c657c55aa7c87d0",
+    "stock_binary_path": "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu/bin/qemu-system-xtensa",
+    "stock_binary_sha256": "50813d894756c1448b8742e1d8db21e3cce0f4e85b56fe53e36760b941cb7f17",
+    "variant": "experimental-patched-QEMU-fork",
+    "version": "9.2.2 (esp_develop_9.2.2_20260417)",
+    "version_command_returncode": 0,
+    "version_observed": "QEMU emulator version 9.2.2\nCopyright (c) 2003-2024 Fabrice Bellard and the QEMU Project developers"
+  },
+  "benchmarks": {
+    "approx_guest_instructions_per_sec": "measurement_unavailable: no instruction counter or calibrated guest clock",
+    "wall_clock_to_first_uart_byte_ms": 0.0,
+    "wall_clock_to_onLoop_ms": "measurement_unavailable: onLoop marker not observed"
+  },
+  "blocker": null,
+  "bridge": {
+    "description": "fresh FAT image generated from the caller-specified host directory",
+    "strategy": "C"
+  },
+  "build_evidence": {
+    "command": [
+      "bash",
+      "/home/jung/Projects/Proto/ProtopandaEmu/backend/qemu/build-experimental-qemu.sh",
+      "--out",
+      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-build"
+    ],
+    "log": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-probe.stdout.experimental-build.log",
+      "sha256": "cf8c8e96f3bfc87470dec88d46b2bb850bb86b16ddc5a6cdb0751615eefe5caa",
+      "size": 119713
+    }
+  },
+  "commands": [
+    [
+      "bash",
+      "/home/jung/Projects/Proto/ProtopandaEmu/backend/qemu/build-experimental-qemu.sh",
+      "--out",
+      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-build"
+    ],
+    [
+      "bash",
+      "/home/jung/Projects/Proto/ProtopandaEmu/scripts/make-sd-image.sh",
+      "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hostdir-scratch/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-sd-card.img",
+      "--fixture-root",
+      "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hostdir-scratch/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-sd-fixture"
+    ],
+    [
+      "mcopy",
+      "-D",
+      "o",
+      "-i",
+      "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hostdir-scratch/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-sd-card.img",
+      "/tmp/tmp.k1MagIjdzi/hardware.json",
+      "::"
+    ],
+    [
+      "timeout",
+      "25s",
+      "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa",
+      "-nographic",
+      "-machine",
+      "esp32s3",
+      "-m",
+      "8M",
+      "-global",
+      "driver=ssi_psram,property=is_octal,value=true",
+      "-drive",
+      "file=/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin,if=mtd,format=raw",
+      "-drive",
+      "if=sd,index=0,file=/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hostdir-scratch/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-sd-card.img,format=raw,snapshot=on",
+      "-snapshot",
+      "-nic",
+      "none",
+      "-d",
+      "unimp,guest_errors"
+    ]
+  ],
+  "experimental_lane": true,
+  "f1_fallback_status": "NOT_EXECUTED",
+  "failure_evidence": [
+    {
+      "line": 4,
+      "stream": "stderr",
+      "text": "M25P80: Unknown cmd 5a"
+    },
+    {
+      "line": 6,
+      "stream": "stderr",
+      "text": "M25P80: Unknown cmd 7a"
+    },
+    {
+      "line": 7,
+      "stream": "stderr",
+      "text": "M25P80: Unknown cmd 77"
+    },
+    {
+      "line": 55,
+      "stream": "stderr",
+      "text": "Invalid read at addr 0x10200C, size 4, region 'er', reason: rejected"
+    },
+    {
+      "line": 57,
+      "stream": "stderr",
+      "text": "Invalid read at addr 0x10200C, size 4, region 'er', reason: rejected"
+    }
+  ],
+  "finished_at_utc": "2026-11-04T23:02:27.944+00:00",
+  "firmware": {
+    "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin",
+    "provenance": "Rock 1 artifacts/build-normal/release/merged_flash.bin",
+    "sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
+    "size": 16777216
+  },
+  "guest_read_evidence": {
+    "guest_uart_log": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-probe.stdout.log",
+      "sha256": "769ac2ac3a94f83ad9a986b9e00c6765c530a093075f32ca4f6bf574e396639e",
+      "size": 1722
+    },
+    "guest_visible_path": "/animation.json",
+    "match_rule": "^Storing 7a17c672db0a7690ebee93cae8524168 as [0-9]+$",
+    "sentinel_field": "frames[0].name",
+    "sentinel_matches": [
+      {
+        "line": 33,
+        "stream": "stdout",
+        "text": "Storing 7a17c672db0a7690ebee93cae8524168 as 1"
+      }
+    ],
+    "source_mapping": [
+      {
+        "evidence": "PANDA_SD.begin(\"/sdcard\", MMC_ONE_BIT, false, MMC_CLOCK_SPEED, 10)",
+        "line": 38,
+        "path": ".work/upstream-v3.4.0/src/tools/storage.cpp"
+      },
+      {
+        "evidence": "File file = PANDA_SD.open( \"/animation.json\" )",
+        "line": 308,
+        "path": ".work/upstream-v3.4.0/src/drawing/framerepository.cpp"
+      },
+      {
+        "evidence": "frames[].name is copied to currentName and counted after the frame is decoded",
+        "lines": "364-388",
+        "path": ".work/upstream-v3.4.0/src/drawing/framerepository.cpp"
+      },
+      {
+        "evidence": "Serial.printf(\"Storing %s as %d\\n\", pair.first.c_str(), pair.second)",
+        "line": 478,
+        "path": ".work/upstream-v3.4.0/src/drawing/framerepository.cpp"
+      }
+    ]
+  },
+  "host_fixture": {
+    "files": {
+      "animation_json": {
+        "path": "/tmp/tmp.k1MagIjdzi/animation.json",
+        "sha256": "7fce0f11a574f3f84eaee2c9e928470fff2c0c9ac45661faf3f8e2cfcf23305f"
+      },
+      "frame_png": {
+        "path": "/tmp/tmp.k1MagIjdzi/frames/idle.png",
+        "sha256": "71156c27c6f05439db3b5fa49ff9450a87f24d5d460ef10a93fdbbd745274426"
+      },
+      "hardware_json": {
+        "path": "/tmp/tmp.k1MagIjdzi/hardware.json",
+        "sha256": "aeedf5725d787a8fa58ff36022cfe18ac4c58b6c4301f38f3b8235ed5b6441c7"
+      },
+      "wifi_json": {
+        "path": "/tmp/tmp.k1MagIjdzi/wifi.json",
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+      }
+    },
+    "guest_visible_path": "/animation.json",
+    "hostdir": "/tmp/tmp.k1MagIjdzi",
+    "sentinel": "7a17c672db0a7690ebee93cae8524168",
+    "sentinel_field": "frames[0].name"
+  },
+  "logs": {
+    "combined": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-probe.combined.log",
+      "sha256": "4a564e20bc4a8a96eababbf25a384f192bac6f1554e6b3547b23a03a35731f91",
+      "size": 104911
+    },
+    "stderr": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-probe.stderr.log",
+      "sha256": "12a86bbe17060687e6fc42902f4e3bd09c42789ac1d68d1437ce3b7d51a94db4",
+      "size": 103165
+    },
+    "stdout": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-probe.stdout.log",
+      "sha256": "769ac2ac3a94f83ad9a986b9e00c6765c530a093075f32ca4f6bf574e396639e",
+      "size": 1722
+    }
+  },
+  "marker_evidence": {
+    "bootloader": {
+      "line": 10,
+      "stream": "stdout",
+      "text": "entry 0x403c88ac"
+    },
+    "rom": {
+      "line": 1,
+      "stream": "stdout",
+      "text": "ESP-ROM:esp32s3-20210327"
+    }
+  },
+  "markers": {
+    "bootloader": true,
+    "guest_stderr": false,
+    "onLoop": false,
+    "onPreflight": false,
+    "onSetup": false,
+    "panic": false,
+    "rom": true,
+    "vfs_init": false,
+    "watchdog_reset": false
+  },
+  "mode": "hostdir-probe",
+  "negative_marker_evidence": [],
+  "notes": [
+    "Experimental-fork evidence lane only; never substitutes for the stock hostdir-spike-none.json gate.",
+    "The firmware image is unmodified Rock 1 F2 firmware; no strategy-D fallback was attempted.",
+    "PASS is based on the exact sentinel line in the raw guest UART stdout, not the combined harness log.",
+    "Stock --backend=qemu semantics were not reinterpreted; this result exists only under hostdir-spike-qemu-experimental.json.",
+    "The upstream image builder refuses a same-name hardware.json collision; the unchanged Rock 4 builder copied the staged fixture, then mcopy -D o overlaid the harness-created display-disabled hardware.json."
+  ],
+  "process": {
+    "bounded_timeout_hit": true,
+    "elapsed_ms": 25009.24,
+    "first_loop_ms": null,
+    "first_stdout_ms": 0.0,
+    "return_code": 124,
+    "timed_out": false
+  },
+  "profile": {
+    "assertion": "N16R8: dual-core LX7, 240 MHz, 16 MiB flash, 8 MiB octal PSRAM",
+    "chip": "esp32s3",
+    "cores": 2,
+    "cpu_mhz": 240,
+    "flash_bytes": 16777216,
+    "psram_bytes": 8388608,
+    "psram_mode": "octal"
+  },
+  "run_id": "235163f7-facd-4469-9a63-80fa402762fc",
+  "schema": "protopandaemu-spike/v1",
+  "sd_image": {
+    "build_log": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-probe.stdout.sd-image.log",
+      "sha256": "d541d271ec12eb9b408f8ea7795aa83c54577699ee0d5d224fcc068a5cea4fbc",
+      "size": 342
+    },
+    "fixture_staging": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hostdir-scratch/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-sd-fixture",
+    "overlay_log": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-probe.stdout.sd-image-overlay.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    "path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hostdir-scratch/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-sd-card.img",
+    "sha256": "21b810456d8ee6dc44636a88a2d664476bec5b8879509289b4f494ebdf79bbe0",
+    "sha256_file": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/235163f7-facd-4469-9a63-80fa402762fc/qemu-hostdir-sd-card.img.sha256",
+      "sha256": "260d3796d41125a13e5238bfc3b26ce4bcd72a6f4464e1cf18d3cb7e8d97d327",
+      "size": 195
+    }
+  },
+  "started_at_utc": "2026-11-04T23:01:19.920+00:00",
+  "status": "PASS",
+  "unpatched_guest_read": {
+    "attempted": true,
+    "confirmed": true,
+    "sentinel_in_guest_log": true
+  }
+}

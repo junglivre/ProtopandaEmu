@@ -1,0 +1,34 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:QIO, clock div:1
+load:0x3fce2820,len:0x10f0
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xbec
+load:0x403cb700,len:0x2fcc
+entry 0x403c88ac
+Starting proto panda v3.4.0!
+[947][I] Running I2C Scan...
+[7317][I] Check the wiring please, no device has been found in the i2c bus.
+[11299][I] [Memory] 86.8% free - 274884 of 316728 bytes free (psram: 8388608 / 8378220  -> 99.9%)
+[13967][I] [Memory] 86.7% free - 274620 of 316728 bytes free (psram: 8388608 / 8378172  -> 99.9%)
+Starting sd card mode as MMC
+[14564][I] [Memory] 86.3% free - 273468 of 316728 bytes free (psram: 8388608 / 8284544  -> 98.8%)
+[15140][I] Canvas size will be 64x32
+[15699][I] Loading display info
+[16258][I] [Memory] memmory_difference msg="Storage" heap=-1312 psram=-4452
+[16815][I] [Memory] 85.9% free - 272156 of 316728 bytes free (psram: 8388608 / 8279956  -> 98.7%)
+[17381][I] Reset reason: Vbat power on reset
+[17939][I] [Memory] memmory_difference msg="Devices" heap=-364 psram=-204
+[18497][I] [Memory] 85.8% free - 271792 of 316728 bytes free (psram: 8388608 / 8279776  -> 98.7%)
+[19056][I] Starting FFAT
+[19973][I] [Memory] memmory_difference msg="FFAT" heap=-948 psram=-18852
+[20532][I] [Memory] 85.5% free - 270844 of 316728 bytes free (psram: 8388608 / 8260884  -> 98.5%)
+[21088][I] FFAT totalBytes=10.24 Mb
+[21650][I] FFAT usedBytes=0.00 Mb
+[22213][I] FFAT Avaliable=100.00%
+[22776][I] Frames.bulk is not present in flash, rebuilding it
+[24473][I] Frame 0 was stored as raw, compressed file was bigger with 22 bytes more 0.000000
+Storing 7a17c672db0a7690ebee93cae8524168 as 1
+[24765][I] Generated cache.json

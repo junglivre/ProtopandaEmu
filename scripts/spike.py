@@ -10,6 +10,7 @@ import os
 import pathlib
 import re
 import signal
+import shutil
 import struct
 import subprocess
 import sys
@@ -344,6 +345,11 @@ def validate_result(result: dict) -> None:
         read = result.get("unpatched_guest_read", {})
         if not read.get("confirmed") or read.get("sentinel_in_guest_log") is not True:
             raise RuntimeError("hostdir PASS without confirmed unpatched guest read and guest log sentinel")
+    if result["mode"] == "hostdir-probe":
+        if result.get("f1_fallback_status") not in STATUS:
+            raise RuntimeError("hostdir result has invalid f1_fallback_status")
+        if not isinstance(result.get("unpatched_guest_read"), dict):
+            raise RuntimeError("hostdir result is missing unpatched_guest_read")
     if result["backend"] != "none" and result["status"] != "NOT_EXECUTED":
         if not isinstance(result.get("logs"), dict) or set(result["logs"]) != {"stdout", "stderr", "combined"}:
             raise RuntimeError("executed result must include all raw log metadata")
@@ -474,6 +480,46 @@ def make_hub75_fixture(run_id: str) -> pathlib.Path:
     (fixture / "wifi.json").write_text("{}\n", encoding="utf-8")
     write_png(fixture / "frames/idle.png")
     return fixture
+
+
+def make_hostdir_fixture(hostdir_arg: str, sentinel: str) -> dict:
+    """Populate the caller's fresh external directory with the SD fixture."""
+    hostdir = pathlib.Path(hostdir_arg).expanduser()
+    if not hostdir.is_absolute():
+        raise ValueError("--hostdir must be an absolute external temporary directory")
+    hostdir = hostdir.resolve()
+    if ROOT == hostdir or ROOT in hostdir.parents:
+        raise ValueError("--hostdir must be outside the repository")
+    if not hostdir.is_dir():
+        raise ValueError(f"--hostdir is not a directory: {hostdir}")
+    if any(hostdir.iterdir()):
+        raise ValueError("--hostdir must be empty before the harness creates the fixture")
+    if not re.fullmatch(r"[0-9a-fA-F]{32}", sentinel):
+        raise ValueError("--sentinel must be a fresh 16-byte hex value from the caller")
+
+    frames = hostdir / "frames"
+    frames.mkdir()
+    animation = hostdir / "animation.json"
+    animation.write_text(json.dumps({"frames": [{"name": sentinel, "file": "/frames/idle.png"}]},
+                                    separators=(",", ":")) + "\n", encoding="utf-8")
+    (hostdir / "wifi.json").write_text("{}\n", encoding="utf-8")
+    (hostdir / "hardware.json").write_text(
+        json.dumps({"canvas_width": 64, "canvas_height": 32,
+                    "display": {"type": "none", "enabled": False}}, separators=(",", ":")) + "\n",
+        encoding="utf-8")
+    write_png(frames / "idle.png")
+    return {
+        "hostdir": str(hostdir),
+        "guest_visible_path": "/animation.json",
+        "sentinel_field": "frames[0].name",
+        "sentinel": sentinel,
+        "files": {
+            "animation_json": {"path": str(animation), "sha256": sha256(animation)},
+            "frame_png": {"path": str(frames / "idle.png"), "sha256": sha256(frames / "idle.png")},
+            "hardware_json": {"path": str(hostdir / "hardware.json"), "sha256": sha256(hostdir / "hardware.json")},
+            "wifi_json": {"path": str(hostdir / "wifi.json"), "sha256": sha256(hostdir / "wifi.json")},
+        },
+    }
 
 
 def aggregate_hub75(result: dict) -> None:
@@ -623,6 +669,168 @@ def inspect_hub75(args, backend: str, firmware: dict, binfo: dict, run_id: str, 
     return result
 
 
+def inspect_hostdir_experimental(args, backend: str, firmware: dict, stock_info: dict,
+                                 run_id: str, started: str, paths: dict) -> dict:
+    """Run Rock 5's real host-folder-to-SD probe against the additive QEMU fork."""
+    result = base_result(args, backend, "hostdir-probe", run_id, started, firmware, stock_info, paths)
+    result.update({
+        "f1_fallback_status": "NOT_EXECUTED",
+        "unpatched_guest_read": {"attempted": False, "confirmed": False, "sentinel_in_guest_log": False},
+        "bridge": {"strategy": "C", "description": "fresh FAT image generated from the caller-specified host directory"},
+        "experimental_lane": True,
+        "notes": [
+            "Experimental-fork evidence lane only; never substitutes for the stock hostdir-spike-none.json gate.",
+            "The firmware image is unmodified Rock 1 F2 firmware; no strategy-D fallback was attempted.",
+        ],
+    })
+    commands = []
+    build_log = paths["stdout"].with_name(paths["stdout"].stem + ".experimental-build.log")
+    image_log = paths["stdout"].with_name(paths["stdout"].stem + ".sd-image.log")
+    overlay_log = paths["stdout"].with_name(paths["stdout"].stem + ".sd-image-overlay.log")
+    qemu_stdout = paths["stdout"]
+    qemu_stderr = paths["stderr"]
+    qemu_combined = paths["combined"]
+
+    build_out = RUNS / run_id / "qemu-hostdir-build"
+    build_cmd = ["bash", str(ROOT / "backend/qemu/build-experimental-qemu.sh"), "--out", str(build_out)]
+    commands.append(build_cmd)
+    build = run_command(build_cmd, 600)
+    build_log.write_text(build["output"], encoding="utf-8")
+    if build["return_code"] != 0 or build["timed_out"]:
+        result["status"] = "NOT_EXECUTED"
+        result["blocker"] = {"kind": "experimental QEMU build unavailable",
+                              "text": "the unpatched guest read was never attempted because the experimental fork build failed or timed out",
+                              "build_log": log_meta(build_log)}
+        result["commands"] = commands
+        result["notes"].append("f1_fallback_status=NOT_EXECUTED: no patched-firmware fallback was attempted.")
+        return result
+
+    try:
+        experimental = experimental_qemu_info(stock_info)
+        fixture = make_hostdir_fixture(args.hostdir, args.sentinel)
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        result["status"] = "NOT_EXECUTED"
+        result["blocker"] = {"kind": "experimental hostdir prerequisite unavailable", "text": str(exc),
+                              "build_log": log_meta(build_log)}
+        result["backend_artifact"] = stock_info
+        result["commands"] = commands
+        result["notes"].append("The guest was not launched, so unpatched_guest_read.attempted=false.")
+        return result
+
+    result["backend_artifact"] = experimental
+    result["host_fixture"] = fixture
+    result["commands"].append(["fixture", "write", fixture["files"]["animation_json"]["path"]])
+
+    scratch = ROOT / ".work" / "qemu-hostdir-scratch" / run_id
+    scratch.mkdir(parents=True, exist_ok=True)
+    image = scratch / "qemu-hostdir-sd-card.img"
+    staged_fixture = scratch / "qemu-hostdir-sd-fixture"
+    shutil.copytree(fixture["hostdir"], staged_fixture,
+                    ignore=shutil.ignore_patterns("hardware.json"))
+    image_cmd = ["bash", str(ROOT / "scripts/make-sd-image.sh"), str(image), "--fixture-root", str(staged_fixture)]
+    commands.append(image_cmd)
+    image_run = run_command(image_cmd, 120)
+    image_log.write_text(image_run["output"], encoding="utf-8")
+    if image_run["return_code"] != 0 or image_run["timed_out"] or not image.is_file():
+        result["status"] = "NOT_EXECUTED"
+        result["blocker"] = {"kind": "SD image generation unavailable",
+                              "text": "the unpatched guest read was never attempted because the fresh FAT image could not be built",
+                              "image_log": log_meta(image_log)}
+        result["commands"] = commands
+        return result
+
+    overlay_cmd = ["mcopy", "-D", "o", "-i", str(image),
+                   str(pathlib.Path(fixture["hostdir"]) / "hardware.json"), "::"]
+    commands.append(overlay_cmd)
+    overlay_run = run_command(overlay_cmd, 30)
+    overlay_log.write_text(overlay_run["output"], encoding="utf-8")
+    if overlay_run["return_code"] != 0 or overlay_run["timed_out"]:
+        result["status"] = "NOT_EXECUTED"
+        result["blocker"] = {"kind": "hardware fixture overlay unavailable",
+                              "text": "the unpatched guest read was never attempted because the display-disabled hardware.json could not be overlaid",
+                              "overlay_log": log_meta(overlay_log)}
+        result["commands"] = commands
+        return result
+
+    image_hash = RUNS / run_id / "qemu-hostdir-sd-card.img.sha256"
+    image_sha = sha256(image)
+    image_hash.write_text(f"{image_sha}  {image}\n", encoding="utf-8")
+    result["sd_image"] = {"path": str(image), "sha256": image_sha,
+                          "sha256_file": log_meta(image_hash), "build_log": log_meta(image_log),
+                          "overlay_log": log_meta(overlay_log),
+                          "fixture_staging": str(staged_fixture)}
+
+    qemu_cmd = bounded_qemu_command([
+        str(experimental["path"]), "-nographic", "-machine", "esp32s3", "-m", "8M",
+        "-global", "driver=ssi_psram,property=is_octal,value=true",
+        "-drive", f"file={firmware['path']},if=mtd,format=raw",
+        "-drive", f"if=sd,index=0,file={image},format=raw,snapshot=on", "-snapshot",
+        "-nic", "none", "-d", "unimp,guest_errors",
+    ])
+    commands.append(qemu_cmd)
+    result["unpatched_guest_read"]["attempted"] = True
+    qemu_run = capture_simple(qemu_cmd, qemu_stdout, qemu_stderr, 27.0,
+                              {"TMPDIR": str(qemu_stdout.parent)})
+    guest_uart = text(qemu_stdout)
+    backend_stderr = text(qemu_stderr)
+    qemu_combined.write_bytes(qemu_stdout.read_bytes() + b"\n--- BACKEND STDERR ---\n" + qemu_stderr.read_bytes())
+    markers, evidence, negative, failures = evidence_lines(guest_uart, backend_stderr)
+    result["markers"].update(markers)
+    result["marker_evidence"] = evidence
+    result["negative_marker_evidence"] = negative
+    result["failure_evidence"] = failures
+    match_pattern = re.compile(rf"^Storing {re.escape(args.sentinel)} as \d+$")
+    sentinel_matches = [{"stream": "stdout", "line": line_no, "text": line}
+                        for line_no, line in enumerate(guest_uart.splitlines(), 1)
+                        if match_pattern.fullmatch(line)]
+    sentinel_in_guest_log = bool(sentinel_matches)
+    result["unpatched_guest_read"].update({"confirmed": sentinel_in_guest_log,
+                                            "sentinel_in_guest_log": sentinel_in_guest_log})
+    result["guest_read_evidence"] = {
+        "guest_uart_log": log_meta(qemu_stdout),
+        "sentinel_matches": sentinel_matches,
+        "match_rule": f"^Storing {args.sentinel} as [0-9]+$",
+        "guest_visible_path": "/animation.json",
+        "sentinel_field": "frames[0].name",
+        "source_mapping": [
+            {"path": ".work/upstream-v3.4.0/src/tools/storage.cpp", "line": 38,
+             "evidence": "PANDA_SD.begin(\"/sdcard\", MMC_ONE_BIT, false, MMC_CLOCK_SPEED, 10)"},
+            {"path": ".work/upstream-v3.4.0/src/drawing/framerepository.cpp", "line": 308,
+             "evidence": "File file = PANDA_SD.open( \"/animation.json\" )"},
+            {"path": ".work/upstream-v3.4.0/src/drawing/framerepository.cpp", "lines": "364-388",
+             "evidence": "frames[].name is copied to currentName and counted after the frame is decoded"},
+            {"path": ".work/upstream-v3.4.0/src/drawing/framerepository.cpp", "line": 478,
+             "evidence": "Serial.printf(\"Storing %s as %d\\n\", pair.first.c_str(), pair.second)"},
+        ],
+    }
+    bounded_timeout_hit = bool(qemu_run["timed_out"] or qemu_run["return_code"] == 124)
+    result["process"] = {key: value for key, value in qemu_run.items() if key not in {"stdout", "stderr"}}
+    result["process"]["bounded_timeout_hit"] = bounded_timeout_hit
+    result["benchmarks"]["wall_clock_to_first_uart_byte_ms"] = qemu_run["first_stdout_ms"] if qemu_run["first_stdout_ms"] is not None else "measurement_unavailable: no captured guest UART byte"
+    result["benchmarks"]["wall_clock_to_onLoop_ms"] = qemu_run["first_loop_ms"] if qemu_run["first_loop_ms"] is not None else "measurement_unavailable: onLoop marker not observed"
+    result["logs"] = {"stdout": log_meta(qemu_stdout), "stderr": log_meta(qemu_stderr), "combined": log_meta(qemu_combined)}
+    result["build_evidence"] = {"log": log_meta(build_log), "command": build_cmd}
+    if sentinel_in_guest_log:
+        result["status"] = "PASS"
+        result["blocker"] = None
+        result["notes"].append("PASS is based on the exact sentinel line in the raw guest UART stdout, not the combined harness log.")
+    else:
+        result["status"] = "TECHNICAL_BLOCKER"
+        if "Card Mount Failed" in guest_uart:
+            reason = "unpatched firmware attempted SD/MMC mount but reported Card Mount Failed"
+        elif bounded_timeout_hit:
+            reason = "unpatched firmware ran until the bounded QEMU timeout without logging the sentinel read"
+        else:
+            reason = "unpatched firmware run completed without the sentinel in its raw guest UART log"
+        result["blocker"] = {"kind": "unpatched hostdir read not confirmed", "text": reason}
+        result["notes"].append("The unpatched path was attempted; f1_fallback_status remains NOT_EXECUTED and does not alter this primary blocker.")
+    result["commands"] = commands
+    result["notes"].append("Stock --backend=qemu semantics were not reinterpreted; this result exists only under hostdir-spike-qemu-experimental.json.")
+    result["notes"].append("The upstream image builder refuses a same-name hardware.json collision; the unchanged Rock 4 builder copied the staged fixture, then mcopy -D o overlaid the harness-created display-disabled hardware.json.")
+    validate_result(result)
+    return result
+
+
 def do_hostdir_none(args, firmware: dict | None) -> dict:
     run_id = str(uuid.uuid4()); now = utc_now()
     result = {"schema": SCHEMA, "mode": "hostdir-probe", "backend": "none", "status": "NOT_EXECUTED", "run_id": run_id,
@@ -647,6 +855,8 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--hostdir")
     parser.add_argument("--sentinel")
+    parser.add_argument("--experimental-qemu", action="store_true",
+                        help="use the separately labeled experimental QEMU fork for hostdir-probe")
     args = parser.parse_args()
     if args.mode == "hostdir-probe" and not args.backend:
         parser.error("--backend is required for hostdir-probe")
@@ -654,11 +864,16 @@ def main() -> int:
         parser.error("--backend is required")
     if args.backend == "none" and args.mode != "hostdir-probe":
         parser.error("--backend=none is only valid for hostdir-probe")
-    if args.mode == "hostdir-probe" and args.backend != "none":
+    if args.experimental_qemu and not (args.mode == "hostdir-probe" and args.backend == "qemu"):
+        parser.error("--experimental-qemu is only valid with --backend=qemu --mode=hostdir-probe")
+    if args.mode == "hostdir-probe" and args.backend == "qemu" and not args.experimental_qemu:
         print("ERROR: hostdir-probe is unsupported for an engine backend in this cycle; use --backend=none to record unmet prerequisites", file=sys.stderr)
         return 2
+    if args.experimental_qemu and (not args.hostdir or not args.sentinel):
+        parser.error("experimental hostdir-probe requires --hostdir and --sentinel")
     if args.mode == "hostdir-probe":
-        canonical = ARTIFACTS / f"hostdir-spike-{args.backend}.json"
+        canonical_name = "hostdir-spike-qemu-experimental.json" if args.experimental_qemu else f"hostdir-spike-{args.backend}.json"
+        canonical = ARTIFACTS / canonical_name
     elif args.mode == "hub75-probe":
         canonical = ARTIFACTS / f"{args.backend}-hub75-extension.json"
     else:
@@ -681,6 +896,8 @@ def main() -> int:
             result = do_boot(args, args.backend, firmware, binfo, run_id, started, paths)
         elif args.mode == "hub75-probe":
             result = inspect_hub75(args, args.backend, firmware, binfo, run_id, started, paths)
+        elif args.experimental_qemu:
+            result = inspect_hostdir_experimental(args, args.backend, firmware, binfo, run_id, started, paths)
         result["finished_at_utc"] = utc_now()
         write_result(result, canonical)
         print(json.dumps({"result": str(canonical), "status": result["status"], "run_id": result["run_id"]}))
