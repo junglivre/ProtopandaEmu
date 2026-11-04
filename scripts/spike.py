@@ -10,6 +10,7 @@ import os
 import pathlib
 import re
 import signal
+import struct
 import subprocess
 import sys
 import tarfile
@@ -18,6 +19,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ARTIFACTS = ROOT / "artifacts"
@@ -119,6 +121,29 @@ def backend_info(name: str) -> dict:
                    "archive_member_matches_executable": True, "version_observed": observed,
                    "version_command_returncode": version_run.returncode})
     return result
+
+
+def experimental_qemu_info(stock_info: dict) -> dict:
+    """Describe the separately-built additive QEMU fork used only by Rock 4."""
+    binary = ROOT / ".work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa"
+    if not binary.is_file() or not os.access(binary, os.X_OK):
+        raise FileNotFoundError(f"experimental QEMU executable is missing or not executable: {binary}")
+    observed_run = subprocess.run([str(binary), "--version"], stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, text=True, check=False, timeout=10)
+    observed = observed_run.stdout.strip()
+    if observed_run.returncode != 0 or "9.2.2" not in observed:
+        raise RuntimeError(f"experimental QEMU --version mismatch: {observed!r}")
+    source_tar = ROOT / ".work/qemu-build-inputs/qemu-source.tar.xz"
+    return {"path": str(binary), "sha256": sha256(binary),
+            "archive_path": str(source_tar), "archive_sha256": sha256(source_tar) if source_tar.is_file() else None,
+            "version": stock_info["version"], "commit": stock_info["commit"], "repo": stock_info["repo"],
+            "variant": "experimental-patched-QEMU-fork",
+            "stock_binary_path": stock_info["path"], "stock_binary_sha256": stock_info["sha256"],
+            "version_observed": observed, "version_command_returncode": observed_run.returncode,
+            "patches": ["0001-esp32s3.c.patch", "0002-hw-misc-meson.build.patch",
+                        "0003-esp32s3-spi-dummy-io-scaling.patch",
+                        "0004-esp32s3-toy-hub75-oled.patch",
+                        "0005-esp32-gpio-input-default-high.patch"]}
 
 
 def start_command(backend: str, firmware: pathlib.Path, timeout: float) -> list[str]:
@@ -299,6 +324,19 @@ def validate_result(result: dict) -> None:
         raise RuntimeError("result has a non-schema marker set")
     if result["mode"] == "boot" and result["status"] == "PASS" and not result["markers"].get("onLoop"):
         raise RuntimeError("boot PASS without an observed onLoop marker")
+    if result["mode"] == "hub75-probe":
+        phase_statuses = {"PASS", "TECHNICAL_BLOCKER", "NOT_EXECUTED"}
+        if result.get("phase_a_status") not in phase_statuses or result.get("phase_b_status") not in phase_statuses:
+            raise RuntimeError("hub75 result has invalid phase status")
+        if result.get("confirmed_scope") not in {"firmware-confirmed", "backend-only", "none"}:
+            raise RuntimeError("hub75 result has invalid confirmed_scope")
+        phase_a = result["phase_a_status"]
+        phase_b = result["phase_b_status"]
+        expected = ("TECHNICAL_BLOCKER" if phase_a == "TECHNICAL_BLOCKER" or phase_b == "TECHNICAL_BLOCKER"
+                    else "PASS" if phase_b == "PASS" else "NOT_EXECUTED")
+        expected_scope = "firmware-confirmed" if phase_b == "PASS" else "backend-only" if phase_a == "PASS" else "none"
+        if result["status"] != expected or result["confirmed_scope"] != expected_scope:
+            raise RuntimeError("hub75 result violates PLAN.md phase aggregation")
     for key in ["wall_clock_to_first_uart_byte_ms", "wall_clock_to_onLoop_ms", "approx_guest_instructions_per_sec"]:
         if key not in result["benchmarks"]:
             raise RuntimeError(f"benchmark missing: {key}")
@@ -357,41 +395,229 @@ def do_boot(args, backend: str, firmware: dict, binfo: dict, run_id: str, starte
     return result
 
 
-def inspect_hub75(args, backend: str, firmware: dict, binfo: dict, run_id: str, started: str, paths: dict) -> dict:
-    paths["stdout"].parent.mkdir(parents=True, exist_ok=True)
-    result = base_result(args, backend, "hub75-probe", run_id, started, firmware, binfo, paths)
-    result["phase_a_status"] = "NOT_EXECUTED"; result["phase_b_status"] = "NOT_EXECUTED"; result["confirmed_scope"] = "none"
-    result["phase_a"] = {}; result["phase_b"] = {}
-    commands = []
-    if backend == "esp-emulator":
-        commands = [[str(binfo["path"]), "--help"]]
-        archive_members = []
-        with tarfile.open(binfo["archive_path"], "r:gz") as archive:
-            archive_members = archive.getnames()
-        result["phase_a"] = {"api_documented": "--i2c-dev register-file ACK/readback only; no SSD1306/HUB75 plugin API in the pinned binary/archive",
-                              "toy_device_executed": False, "traffic_observed": False,
-                              "reason": "release archive contains only the executable; the public distribution does not include a Rust core/device SDK",
-                              "archive_members": archive_members,
-                              "source_audit": source_audit(["https://raw.githubusercontent.com/espressif/esp-emulator/v0.51.0/README.md", "https://raw.githubusercontent.com/espressif/esp-emulator/v0.51.0/LICENSE"])}
+def run_command(command: list[str], timeout: float) -> dict:
+    try:
+        completed = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   text=True, check=False, timeout=timeout)
+        return {"command": command, "return_code": completed.returncode, "timed_out": False,
+                "output": completed.stdout}
+    except subprocess.TimeoutExpired as exc:
+        output = exc.stdout or ""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", "replace")
+        return {"command": command, "return_code": None, "timed_out": True,
+                "output": output + "\ncommand timed out\n"}
+
+
+def capture_simple(command: list[str], stdout_path: pathlib.Path, stderr_path: pathlib.Path,
+                   timeout: float, env: dict | None = None) -> dict:
+    """Bounded capture for QEMU phases; communicate() drains both pipes safely."""
+    stdout_path.parent.mkdir(parents=True, exist_ok=True)
+    process_env = os.environ.copy()
+    if env:
+        process_env.update(env)
+    started = time.monotonic()
+    proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            start_new_session=True, env=process_env)
+    timed_out = False
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return_code = proc.returncode
+    except subprocess.TimeoutExpired as exc:
+        timed_out = True
+        os.killpg(proc.pid, signal.SIGTERM)
+        try:
+            out, err = proc.communicate(timeout=3.0)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            out, err = proc.communicate(timeout=3.0)
+        return_code = proc.returncode
+    stdout_path.write_bytes(out or b"")
+    stderr_path.write_bytes(err or b"")
+    elapsed = round((time.monotonic() - started) * 1000, 3)
+    first_loop = positive_checkpoint(out or b"", "onLoop")
+    return {"return_code": return_code, "timed_out": timed_out,
+            "first_stdout_ms": 0.0 if out else None, "first_loop_ms": elapsed if first_loop else None,
+            "elapsed_ms": elapsed, "stdout": out or b"", "stderr": err or b""}
+
+
+def bounded_qemu_command(command: list[str]) -> list[str]:
+    return ["timeout", "25s", *command]
+
+
+def write_png(path: pathlib.Path, width: int = 64, height: int = 32) -> None:
+    rows = []
+    for y in range(height):
+        row = bytearray([0])
+        for x in range(width):
+            row.extend((255 if (x // 8 + y // 8) % 2 else 0, 32 + (x * 3) % 192, 64 + (y * 5) % 192))
+        rows.append(bytes(row))
+
+    def chunk(name: bytes, payload: bytes) -> bytes:
+        return struct.pack(">I", len(payload)) + name + payload + struct.pack(">I", zlib.crc32(name + payload) & 0xffffffff)
+
+    data = b"\x89PNG\r\n\x1a\n"
+    data += chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+    data += chunk(b"IDAT", zlib.compress(b"".join(rows), 9))
+    data += chunk(b"IEND", b"")
+    path.write_bytes(data)
+
+
+def make_hub75_fixture(run_id: str) -> pathlib.Path:
+    fixture = ARTIFACTS / "spike-runs" / run_id / "qemu-hub75-sd-fixture"
+    (fixture / "frames").mkdir(parents=True, exist_ok=True)
+    (fixture / "animation.json").write_text(
+        json.dumps({"frames": [{"name": "idle", "file": "/frames/idle.png"}]}, separators=(",", ":")) + "\n",
+        encoding="utf-8")
+    # This file is valid enough for the firmware's non-edit-mode fixture; the
+    # probe does not enter the Wi-Fi/edit server path.
+    (fixture / "wifi.json").write_text("{}\n", encoding="utf-8")
+    write_png(fixture / "frames/idle.png")
+    return fixture
+
+
+def aggregate_hub75(result: dict) -> None:
+    phase_a = result["phase_a_status"]
+    phase_b = result["phase_b_status"]
+    if phase_a == "TECHNICAL_BLOCKER" or phase_b == "TECHNICAL_BLOCKER":
+        result["status"] = "TECHNICAL_BLOCKER"
+    elif phase_b == "PASS":
+        result["status"] = "PASS"
     else:
-        commands = [[str(binfo["path"]), "-machine", "help"], [str(binfo["path"]), "-device", "help"], [str(binfo["path"]), "-help"]]
-        result["phase_a"] = {"api_documented": "QEMU C device model source and TCG plugin API are available; the plugin API is instrumentation, not a peripheral model registration API",
+        result["status"] = "NOT_EXECUTED"
+    if phase_b == "PASS":
+        result["confirmed_scope"] = "firmware-confirmed"
+    elif phase_a == "PASS":
+        result["confirmed_scope"] = "backend-only"
+    else:
+        result["confirmed_scope"] = "none"
+
+
+def inspect_hub75(args, backend: str, firmware: dict, binfo: dict, run_id: str, started: str, paths: dict) -> dict:
+    """Run the actual Rock 4 probe; QEMU uses the experimental fork explicitly."""
+    result = base_result(args, backend, "hub75-probe", run_id, started, firmware, binfo, paths)
+    result.update({"phase_a_status": "NOT_EXECUTED", "phase_b_status": "NOT_EXECUTED",
+                   "confirmed_scope": "none", "phase_a": {}, "phase_b": {}})
+    commands = []
+    aout = paths["stdout"].with_name(paths["stdout"].stem + ".phase-a.stdout.log")
+    aerr = paths["stderr"].with_name(paths["stderr"].stem + ".phase-a.stderr.log")
+    bout = paths["stdout"].with_name(paths["stdout"].stem + ".phase-b.stdout.log")
+    berr = paths["stderr"].with_name(paths["stderr"].stem + ".phase-b.stderr.log")
+    aout.touch(); aerr.touch(); bout.touch(); berr.touch()
+
+    if backend == "esp-emulator":
+        command = [str(binfo["path"]), "--help"]
+        commands.append(command)
+        probe = run_command(command, 15)
+        aout.write_text(probe["output"] + "\n[reconfirmation] no device/plugin registration API in the distributed binary.\n", encoding="utf-8")
+        aerr.write_text("Existing esp-emulator probe command re-run; toy execution is NOT_EXECUTED.\n", encoding="utf-8")
+        acmb = aout.with_name(aout.stem + ".combined.log")
+        acmb.write_bytes(aout.read_bytes() + b"\n--- PROBE STDERR ---\n" + aerr.read_bytes())
+        with tarfile.open(binfo["archive_path"], "r:gz") as archive:
+            members = archive.getnames()
+        result["phase_a"] = {"api_documented": "--i2c-dev register-file ACK/readback only; no SSD1306/HUB75 plugin API",
                               "toy_device_executed": False, "traffic_observed": False,
-                              "source_paths": ["hw/i2c/esp32_i2c.c", "hw/dma/esp32s3_gdma.c", "hw/sd/dwc_sdmmc.c", "include/qemu/qemu-plugin.h"],
-                              "reason": "no compiled toy device model or minimal guest was built/executed in this cycle",
-                              "source_audit": source_audit([
-                                  "https://raw.githubusercontent.com/espressif/qemu/40edccac415693c5130f91c01d84176ae6008566/hw/i2c/esp32_i2c.c",
-                                  "https://raw.githubusercontent.com/espressif/qemu/40edccac415693c5130f91c01d84176ae6008566/hw/dma/esp32s3_gdma.c",
-                                  "https://raw.githubusercontent.com/espressif/qemu/40edccac415693c5130f91c01d84176ae6008566/include/qemu/qemu-plugin.h"])}
-    outputs = []
-    for command in commands:
-        completed = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
-        outputs.append({"command": command, "return_code": completed.returncode, "stdout": completed.stdout, "stderr": completed.stderr})
-    paths["stdout"].write_text(json.dumps(outputs, indent=2) + "\n", encoding="utf-8")
-    paths["stderr"].write_text("API inspection command stderr is embedded in the structured stdout capture; no guest run was attempted.\n", encoding="utf-8")
-    paths["combined"].write_bytes(paths["stdout"].read_bytes() + b"\n--- INSPECTION STDERR ---\n" + paths["stderr"].read_bytes())
-    result["commands"] = commands; result["status"] = "NOT_EXECUTED"; result["blocker"] = {"kind": "toy device execution not attempted", "text": result["phase_a"]["reason"]}
-    result["notes"].append("Phase B is NOT_EXECUTED because no toy device traffic was observed and the original firmware did not reach the required downstream peripheral path.")
+                              "reason": "existing --help probe reconfirmed the prior source/license finding",
+                              "probe_reconfirmation": True, "archive_members": members,
+                              "logs": {"stdout": log_meta(aout), "stderr": log_meta(aerr), "combined": log_meta(acmb)}}
+        result["phase_b"] = {"status": "NOT_EXECUTED", "reason": "Phase A has no device/plugin API."}
+    else:
+        build_cmd = ["bash", str(ROOT / "backend/qemu/build-experimental-qemu.sh"), "--out", str(ARTIFACTS / "qemu-hub75")]
+        commands.append(build_cmd)
+        build = run_command(build_cmd, 600)
+        build_log = paths["stdout"].with_name(paths["stdout"].stem + ".experimental-build.log")
+        build_log.write_text(build["output"], encoding="utf-8")
+        if build["return_code"] != 0 or build["timed_out"]:
+            result["phase_a_status"] = "TECHNICAL_BLOCKER"
+            result["phase_a"] = {"toy_device_executed": False, "traffic_observed": False,
+                                  "reason": "experimental/patched QEMU fork build failed", "build_log": log_meta(build_log)}
+            result["blocker"] = {"kind": "experimental QEMU build failure", "text": result["phase_a"]["reason"]}
+        else:
+            experimental = experimental_qemu_info(binfo)
+            result["backend_artifact"] = experimental
+            toy_dir = RUNS / run_id / "toy-guest"
+            toy_build_cmd = ["bash", str(ROOT / "backend/qemu/build-toy-guest.sh"), str(toy_dir)]
+            commands.append(toy_build_cmd)
+            toy_build = run_command(toy_build_cmd, 60)
+            toy_log = paths["stdout"].with_name(paths["stdout"].stem + ".toy-build.log")
+            toy_log.write_text(toy_build["output"], encoding="utf-8")
+            toy_elf = toy_dir / "toy_guest.elf"
+            if toy_build["return_code"] != 0 or toy_build["timed_out"] or not toy_elf.is_file():
+                result["phase_a_status"] = "TECHNICAL_BLOCKER"
+                result["phase_a"] = {"toy_device_executed": False, "traffic_observed": False,
+                                      "reason": "minimal QEMU toy guest build failed", "build_log": log_meta(toy_log)}
+                result["blocker"] = {"kind": "toy guest build failure", "text": result["phase_a"]["reason"]}
+            else:
+                toy_cmd = bounded_qemu_command([str(experimental["path"]), "-nographic", "-machine", "esp32s3", "-m", "8M", "-kernel", str(toy_elf),
+                                                "-nic", "none", "-no-reboot", "-monitor", "none", "-d", "guest_errors"])
+                commands.append(toy_cmd)
+                toy_run = capture_simple(toy_cmd, aout, aerr, 27.0)
+                toy_err = text(aerr)
+                i2c_seen = "[protopandaemu.ssd1306] I2C transfer observed" in toy_err
+                hub_seen = ("[protopandaemu.hub75] LCD_CAM DMA start observed" in toy_err and
+                            "[protopandaemu.hub75] DMA transfer observed" in toy_err)
+                acmb = aout.with_name(aout.stem + ".combined.log")
+                acmb.write_bytes(aout.read_bytes() + b"\n--- QEMU STDERR ---\n" + aerr.read_bytes())
+                result["phase_a"] = {"api_documented": "additive C SysBus/I2C models wired into esp32s3; minimal Xtensa ELF drives I2C and LCD_CAM/DMA",
+                                      "toy_device_executed": True, "traffic_observed": i2c_seen and hub_seen,
+                                      "ssd1306_traffic_observed": i2c_seen, "hub75_traffic_observed": hub_seen,
+                                      "guest": {"path": str(toy_elf), "sha256": sha256(toy_elf), "build_log": log_meta(toy_log)},
+                                      "process": {key: value for key, value in toy_run.items() if key not in {"stdout", "stderr"}}, "build_log": log_meta(build_log),
+                                      "logs": {"stdout": log_meta(aout), "stderr": log_meta(aerr), "combined": log_meta(acmb)}}
+                result["phase_a_status"] = "PASS" if i2c_seen and hub_seen else "TECHNICAL_BLOCKER"
+                if result["phase_a_status"] != "PASS":
+                    result["blocker"] = {"kind": "incomplete toy-device traffic", "text": "Phase A requires SSD1306 I2C and HUB75 LCD_CAM/DMA observations"}
+
+            if result["phase_a_status"] == "PASS":
+                fixture = make_hub75_fixture(run_id)
+                scratch = ROOT / ".work" / "qemu-hub75-scratch" / run_id
+                scratch.mkdir(parents=True, exist_ok=True)
+                image = scratch / "qemu-hub75-sd-card.img"
+                image_hash = RUNS / run_id / "qemu-hub75-sd-card.img.sha256"
+                image_cmd = ["bash", str(ROOT / "scripts/make-sd-image.sh"), str(image), "--fixture-root", str(fixture)]
+                commands.append(image_cmd)
+                image_run = run_command(image_cmd, 120)
+                image_log = paths["stdout"].with_name(paths["stdout"].stem + ".sd-image.log")
+                image_log.write_text(image_run["output"], encoding="utf-8")
+                if image_run["return_code"] != 0 or image_run["timed_out"] or not image.is_file():
+                    result["phase_b_status"] = "TECHNICAL_BLOCKER"
+                    result["phase_b"] = {"reason": "fresh minimal SD fixture could not be built", "build_log": log_meta(image_log)}
+                else:
+                    generated_hash = image.with_name(image.name + ".sha256")
+                    image_hash.write_text(generated_hash.read_text(encoding="utf-8"), encoding="utf-8")
+                    fw_cmd = bounded_qemu_command([str(experimental["path"]), "-nographic", "-machine", "esp32s3", "-m", "8M",
+                                                    "-global", "driver=ssi_psram,property=is_octal,value=true", "-drive", f"file={firmware['path']},if=mtd,format=raw",
+                                                    "-drive", f"if=sd,index=0,file={image},format=raw,snapshot=on", "-snapshot", "-nic", "none", "-d", "unimp,guest_errors"])
+                    commands.append(fw_cmd)
+                    fw_run = capture_simple(fw_cmd, bout, berr, 27.0, {"TMPDIR": str(paths["stdout"].parent)})
+                    fw_err = text(berr)
+                    i2c_seen = "[protopandaemu.ssd1306] I2C transfer observed" in fw_err
+                    hub_seen = ("[protopandaemu.hub75] LCD_CAM DMA start observed" in fw_err or
+                                "[protopandaemu.hub75] DMA transfer observed" in fw_err)
+                    bcmb = bout.with_name(bout.stem + ".combined.log")
+                    bcmb.write_bytes(bout.read_bytes() + b"\n--- QEMU STDERR ---\n" + berr.read_bytes())
+                    result["phase_b_status"] = "PASS" if i2c_seen and hub_seen else ("TECHNICAL_BLOCKER" if i2c_seen or hub_seen else "NOT_EXECUTED")
+                    result["phase_b"] = {"firmware_path_reached": i2c_seen or hub_seen,
+                                          "ssd1306_traffic_observed": i2c_seen, "hub75_traffic_observed": hub_seen,
+                                          "traffic_matches_firmware_paths": i2c_seen and hub_seen,
+                                          "process": {key: value for key, value in fw_run.items() if key not in {"stdout", "stderr"}},
+                                          "sd_image": {"path": str(image), "sha256": sha256(image), "sha256_file": log_meta(image_hash), "build_log": log_meta(image_log)},
+                                          "source_mapping": [
+                                              {"path": ".work/upstream-v3.4.0/src/tools/oledscreen.cpp", "line": 26, "evidence": "display.begin(SSD1306_SWITCHCAPVCC, 0x3C)"},
+                                              {"path": ".work/upstream-v3.4.0/src/tools/devices.cpp", "lines": "100-110", "evidence": "I2CScan uses Wire.beginTransmission/endTransmission for addresses 1-126"},
+                                              {"path": ".work/upstream-v3.4.0/include/tools/displays/hub75.hpp", "line": 34, "evidence": "Hub75Display::begin calls matrix->begin()"},
+                                              {"path": ".work/upstream-v3.4.0/.pio/libdeps/release/ESP32 HUB75 LED MATRIX PANEL DMA Display/src/platforms/esp32s3/gdma_lcd_parallel16.cpp", "lines": "244-250,274,408", "evidence": "GDMA LCD trigger, completion poll, and LCD_CAM lcd_start"}],
+                                          "logs": {"stdout": log_meta(bout), "stderr": log_meta(berr), "combined": log_meta(bcmb)}}
+                    if result["phase_b_status"] == "TECHNICAL_BLOCKER":
+                        result["blocker"] = {"kind": "partial original-firmware peripheral path", "text": "only one of the required I2C/LCD_CAM paths was observed"}
+
+    aggregate_hub75(result)
+    if result["status"] == "NOT_EXECUTED" and result.get("blocker") is None:
+        result["blocker"] = {"kind": "Phase B not reached", "text": "original firmware produced no observable toy-device traffic"}
+    result["commands"] = commands
+    paths["stdout"].write_bytes(b"--- PHASE A ---\n" + aout.read_bytes() + b"\n--- PHASE B ---\n" + (bout.read_bytes() if bout.exists() else b"Phase B was not executed.\n"))
+    paths["stderr"].write_bytes(b"--- PHASE A ---\n" + aerr.read_bytes() + b"\n--- PHASE B ---\n" + (berr.read_bytes() if berr.exists() else b"Phase B was not executed.\n"))
+    paths["combined"].write_bytes(paths["stdout"].read_bytes() + b"\n--- BACKEND STDERR ---\n" + paths["stderr"].read_bytes())
     result["logs"] = {"stdout": log_meta(paths["stdout"]), "stderr": log_meta(paths["stderr"]), "combined": log_meta(paths["combined"])}
     validate_result(result)
     return result

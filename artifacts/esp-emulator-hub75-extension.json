@@ -20,8 +20,8 @@
     "wall_clock_to_onLoop_ms": "measurement_unavailable: onLoop marker not observed"
   },
   "blocker": {
-    "kind": "toy device execution not attempted",
-    "text": "release archive contains only the executable; the public distribution does not include a Rust core/device SDK"
+    "kind": "Phase B not reached",
+    "text": "original firmware produced no observable toy-device traffic"
   },
   "commands": [
     [
@@ -30,7 +30,7 @@
     ]
   ],
   "confirmed_scope": "none",
-  "finished_at_utc": "2026-11-04T15:53:52.454+00:00",
+  "finished_at_utc": "2026-11-04T22:27:09.566+00:00",
   "firmware": {
     "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin",
     "provenance": "Rock 1 artifacts/build-normal/release/merged_flash.bin",
@@ -39,19 +39,19 @@
   },
   "logs": {
     "combined": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/65f57e0c-f599-46f8-9a5a-2a146c2b721a/esp-emulator-hub75-probe.combined.log",
-      "sha256": "2b66d2d327e2d6bfdd6c3f2a7d6d350051b09c3873a145e367b0555aaaca8764",
-      "size": 14143
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.combined.log",
+      "sha256": "7656b790e60f8675801b2172ab8da2ecbe8677aa62a895a865560ffa11491878",
+      "size": 13408
     },
     "stderr": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/65f57e0c-f599-46f8-9a5a-2a146c2b721a/esp-emulator-hub75-probe.stderr.log",
-      "sha256": "0b33651b07f37bae73a4db48ef97a4163b7996a04f84d3e1a23fd0ed47923a58",
-      "size": 104
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stderr.log",
+      "sha256": "435e11b0ac54bffc61046cf3875735044d7a49135fc0f5b1a6e0bbd3c038fea6",
+      "size": 108
     },
     "stdout": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/65f57e0c-f599-46f8-9a5a-2a146c2b721a/esp-emulator-hub75-probe.stdout.log",
-      "sha256": "4fa704e95fad496fd0edfb4198ab38b77be5605a04392ced58b56661c6bfaf38",
-      "size": 14012
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stdout.log",
+      "sha256": "0faf6870ca8da1ab1ba43acf724328746f7516364018d5389dc1ebeee1896275",
+      "size": 13276
     }
   },
   "marker_evidence": {},
@@ -67,37 +67,40 @@
     "watchdog_reset": false
   },
   "mode": "hub75-probe",
-  "notes": [
-    "Phase B is NOT_EXECUTED because no toy device traffic was observed and the original firmware did not reach the required downstream peripheral path."
-  ],
+  "notes": [],
   "phase_a": {
-    "api_documented": "--i2c-dev register-file ACK/readback only; no SSD1306/HUB75 plugin API in the pinned binary/archive",
+    "api_documented": "--i2c-dev register-file ACK/readback only; no SSD1306/HUB75 plugin API",
     "archive_members": [
       "esp-emu-0.51.0-x86_64-unknown-linux-gnu",
       "esp-emu-0.51.0-x86_64-unknown-linux-gnu/esp-emu"
     ],
-    "reason": "release archive contains only the executable; the public distribution does not include a Rust core/device SDK",
-    "source_audit": [
-      {
-        "bytes": 46081,
-        "excerpt": "# Emulator for ESP32 Series SoCs (Beta)\n\nA Rust-based emulator that runs ESP32-C3, ESP32-C5, ESP32-C6, ESP32-H2, ESP32-P4, ESP32-S31 (RISC-V) and ESP32-S3 (Xtensa LX7) firmware binaries \u2014 CPU, memory, WiFi, BLE, Thread, Ethernet, crypto, and more. This repo distributes the installer, prebuilt release binaries, user-facing docs, and helper tools.\n\n## Install\n\nOne-liner (Linux x86_64 / arm64, macOS Apple Silicon):\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/espressif/esp-emulator/main/install.sh | sh\n```\n\nThis downloads the latest binary to `$HOME/.local/bin/esp-emu`. If `~/.local/bin` i",
-        "http": 200,
-        "sha256": "051cf61a08e70a1bdaa058fa6443591041f2e7d5281381f2a310df244199aa8e",
-        "url": "https://raw.githubusercontent.com/espressif/esp-emulator/v0.51.0/README.md"
+    "logs": {
+      "combined": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stdout.phase-a.stdout.combined.log",
+        "sha256": "e424ea0b3d13b2d5f1f80db915cde14fa14774dd1959c8b6c7721fd6ea60772a",
+        "size": 13340
       },
-      {
-        "bytes": 11357,
-        "excerpt": "                                 Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/\n\n   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n   1. Definitions.\n\n      \"License\" shall mean the terms and conditions for use, reproduction,\n      and distribution as defined by Sections 1 through 9 of this document.\n\n      \"Licensor\" shall mean the copyright owner or entity authorized by\n      the copyright owner that is granting the License.\n\n      \"Legal Entity\" shall mean the union of the acting entity and all\n     ",
-        "http": 200,
-        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-        "url": "https://raw.githubusercontent.com/espressif/esp-emulator/v0.51.0/LICENSE"
+      "stderr": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stderr.phase-a.stderr.log",
+        "sha256": "6aaf85b830b463303c4d74e2a56abe02e9c85a61401084ce13ab621959515d2f",
+        "size": 75
+      },
+      "stdout": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stdout.phase-a.stdout.log",
+        "sha256": "f72fcee69ff57715f01d6defd40c047ef5208ae1cda4e1b40ede0076daa08d18",
+        "size": 13243
       }
-    ],
+    },
+    "probe_reconfirmation": true,
+    "reason": "existing --help probe reconfirmed the prior source/license finding",
     "toy_device_executed": false,
     "traffic_observed": false
   },
   "phase_a_status": "NOT_EXECUTED",
-  "phase_b": {},
+  "phase_b": {
+    "reason": "Phase A has no device/plugin API.",
+    "status": "NOT_EXECUTED"
+  },
   "phase_b_status": "NOT_EXECUTED",
   "profile": {
     "assertion": "N16R8: dual-core LX7, 240 MHz, 16 MiB flash, 8 MiB octal PSRAM",
@@ -108,8 +111,8 @@
     "psram_bytes": 8388608,
     "psram_mode": "octal"
   },
-  "run_id": "65f57e0c-f599-46f8-9a5a-2a146c2b721a",
+  "run_id": "3eeab1c4-15ec-426f-ab95-25f23f6a08e4",
   "schema": "protopandaemu-spike/v1",
-  "started_at_utc": "2026-11-04T15:53:51.923+00:00",
+  "started_at_utc": "2026-11-04T22:27:09.522+00:00",
   "status": "NOT_EXECUTED"
 }

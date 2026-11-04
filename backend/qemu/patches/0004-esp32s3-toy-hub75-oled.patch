@@ -1,0 +1,83 @@
+--- a/hw/xtensa/esp32s3.c
++++ b/hw/xtensa/esp32s3.c
+@@ -22,6 +22,7 @@
+ #include "hw/misc/unimp.h"
+ #include "hw/irq.h"
+ #include "hw/i2c/i2c.h"
++#include "hw/i2c/esp32_i2c.h"
+ #include "hw/qdev-properties.h"
+ 
+ #include "qemu/osdep.h"
+@@ -50,6 +51,8 @@
+ #include "hw/char/esp32s3_uart.h"
+ #include "hw/misc/esp32s3_rng.h"
+ #include "hw/misc/esp32s3_sens.h"
++#include "hw/i2c/esp32s3_toy_ssd1306.h"
++#include "hw/display/esp32s3_toy_hub75.h"
+ 
+ #include "hw/nvram/esp32s3_efuse.h"
+ #include "hw/xtensa/esp32s3_clk.h"
+@@ -126,6 +129,8 @@
+     ESP32S3GPIOState gpio;
+     Esp32s3RngState rng;
+     Esp32s3SensState sens;
++    Esp32I2CState i2c0;
++    Esp32s3ToyHub75State toy_hub75;
+     Esp32S3TWAIState twai;
+ 
+     Esp32s3RtcCntlState rtc_cntl;
+@@ -644,6 +649,8 @@
+     object_initialize_child(OBJECT(ss), "gpio", &ss->gpio, TYPE_ESP32S3_GPIO);
+     object_initialize_child(OBJECT(ss), "rng", &ss->rng, TYPE_ESP32S3_RNG);
+     object_initialize_child(OBJECT(ss), "sens", &ss->sens, TYPE_ESP32S3_SENS);
++    object_initialize_child(OBJECT(ss), "i2c0", &ss->i2c0, TYPE_ESP32_I2C);
++    object_initialize_child(OBJECT(ss), "toy_hub75", &ss->toy_hub75, TYPE_ESP32S3_TOY_HUB75);
+ 
+     object_initialize_child(OBJECT(ss), "clock", &ss->clock, TYPE_ESP32S3_CLOCK);
+ 
+@@ -789,6 +796,26 @@
+         esp32s3_soc_add_periph_device(sys_mem, &ss->sens, ESP32S3_SENS_BASE);
+     }
+ 
++    /* Rock 4 experimental I2C bus with a toy SSD1306-shaped slave. */
++    {
++        sysbus_realize(SYS_BUS_DEVICE(&ss->i2c0), &error_fatal);
++        MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&ss->i2c0), 0);
++        memory_region_add_subregion_overlap(sys_mem, DR_REG_I2C_EXT_BASE, mr, 0);
++        sysbus_connect_irq(SYS_BUS_DEVICE(&ss->i2c0), 0,
++                           qdev_get_gpio_in(intmatrix_dev, ETS_I2C_EXT1_INTR_SOURCE));
++        i2c_slave_create_simple(I2C_BUS(qdev_get_child_bus(DEVICE(&ss->i2c0), "i2c")),
++                                TYPE_ESP32S3_TOY_SSD1306, 0x3c);
++    }
++
++    /* Rock 4 experimental LCD_CAM/HUB75-shaped DMA sink. */
++    {
++        object_property_set_link(OBJECT(&ss->toy_hub75), "soc_mr", OBJECT(dram),
++                                  &error_abort);
++        sysbus_realize(SYS_BUS_DEVICE(&ss->toy_hub75), &error_fatal);
++        MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&ss->toy_hub75), 0);
++        memory_region_add_subregion_overlap(sys_mem, DR_REG_LCD_CAM_BASE, mr, 0);
++    }
++
+ 
+     /* GDMA Realization */
+     {
+--- a/hw/i2c/meson.build
++++ b/hw/i2c/meson.build
+@@ -17,6 +17,7 @@
+ i2c_ss.add(when: 'CONFIG_PPC4XX', if_true: files('ppc4xx_i2c.c'))
+ i2c_ss.add(when: 'CONFIG_XTENSA_ESP32', if_true: files('esp32_i2c.c'))
+ i2c_ss.add(when: 'CONFIG_XTENSA_ESP32S3', if_true: files('esp32_i2c.c'))
++i2c_ss.add(when: 'CONFIG_XTENSA_ESP32S3', if_true: files('esp32s3_toy_ssd1306.c'))
+ i2c_ss.add(when: 'CONFIG_PCA954X', if_true: files('i2c_mux_pca954x.c'))
+ i2c_ss.add(when: 'CONFIG_PMBUS', if_true: files('pmbus_device.c'))
+ i2c_ss.add(when: 'CONFIG_BCM2835_I2C', if_true: files('bcm2835_i2c.c'))
+--- a/hw/display/meson.build
++++ b/hw/display/meson.build
+@@ -1,5 +1,7 @@
+ hw_display_modules = {}
+ 
++system_ss.add(when: 'CONFIG_XTENSA_ESP32S3', if_true: files('esp32s3_toy_hub75.c'))
++
+ system_ss.add(when: 'CONFIG_DDC', if_true: files('i2c-ddc.c'))
+ system_ss.add(when: 'CONFIG_EDID', if_true: files('edid-generate.c', 'edid-region.c'))

@@ -1,0 +1,6 @@
+Not initializing SPI Flash
+Warning: both -bios and -kernel arguments specified. Only loading the the -kernel file.
+qemu-system-xtensa: info: [protopandaemu.ssd1306] I2C transfer observed address=0x3c bytes=2 control=0x00
+qemu-system-xtensa: info: [protopandaemu.hub75] LCD_CAM DMA start observed count=1 value=0x08000000
+qemu-system-xtensa: info: [protopandaemu.hub75] DMA transfer observed descriptor=0x3fc80000 bytes=16 first=44332211
+qemu-system-xtensa: terminating on signal 15 from pid 1435196 (timeout)

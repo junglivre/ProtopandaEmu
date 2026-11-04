@@ -1,0 +1,15 @@
+--- a/hw/gpio/esp32_gpio.c
++++ b/hw/gpio/esp32_gpio.c
+@@ -25,5 +25,12 @@
+     uint64_t r = 0;
+     switch (addr) {
++    /* The experimental machine has no external GPIO drivers.  Keep input
++     * pins high by default so the stock firmware's active-low edit-mode
++     * strap is not spuriously asserted during the peripheral probe. */
++    case 0x3c: /* GPIO_IN_REG */
++    case 0x40: /* GPIO_IN1_REG */
++        r = UINT32_MAX;
++        break;
+     case A_GPIO_STRAP:
+         r = s->strap_mode;
+         break;

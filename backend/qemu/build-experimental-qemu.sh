@@ -26,6 +26,7 @@ while (($#)); do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+OUT_DIR=$(realpath -m "$OUT_DIR")
 mkdir -p "$OUT_DIR"
 
 if [[ ! -f "$SOURCE_TAR" ]]; then
@@ -55,9 +56,13 @@ fi
 
 APPLY_MARKER="$SOURCE_DIR/.protopandaemu-sens-patch-applied"
 if [[ ! -f "$APPLY_MARKER" ]]; then
-  echo "+ applying SENS device patches"
-  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0001-esp32s3.c.patch"
-  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0002-hw-misc-meson.build.patch"
+  if grep -q 'hw/misc/esp32s3_sens.h' "$SOURCE_DIR/hw/xtensa/esp32s3.c" 2>/dev/null; then
+    echo "SENS patch effects already present; recording idempotent marker"
+  else
+    echo "+ applying SENS device patches"
+    patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0001-esp32s3.c.patch"
+    patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0002-hw-misc-meson.build.patch"
+  fi
   mkdir -p "$SOURCE_DIR/hw/misc" "$SOURCE_DIR/include/hw/misc"
   cp "$ROOT_DIR/backend/qemu/new-files/hw/misc/esp32s3_sens.c" "$SOURCE_DIR/hw/misc/esp32s3_sens.c"
   cp "$ROOT_DIR/backend/qemu/new-files/include/hw/misc/esp32s3_sens.h" "$SOURCE_DIR/include/hw/misc/esp32s3_sens.h"
@@ -73,6 +78,50 @@ if [[ ! -f "$APPLY_MARKER2" ]]; then
   touch "$APPLY_MARKER2"
 else
   echo "SPI dummy patch already applied (idempotent): $APPLY_MARKER2"
+fi
+
+APPLY_MARKER3="$SOURCE_DIR/.protopandaemu-rock4-toy-devices-applied"
+if [[ ! -f "$APPLY_MARKER3" ]]; then
+  echo "+ applying Rock 4 SSD1306/LCD_CAM toy-device patches"
+  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0004-esp32s3-toy-hub75-oled.patch"
+  mkdir -p "$SOURCE_DIR/hw/i2c" "$SOURCE_DIR/hw/display" \
+           "$SOURCE_DIR/include/hw/i2c" "$SOURCE_DIR/include/hw/display"
+  cp "$ROOT_DIR/backend/qemu/new-files/hw/i2c/esp32s3_toy_ssd1306.c" \
+     "$SOURCE_DIR/hw/i2c/esp32s3_toy_ssd1306.c"
+  cp "$ROOT_DIR/backend/qemu/new-files/include/hw/i2c/esp32s3_toy_ssd1306.h" \
+     "$SOURCE_DIR/include/hw/i2c/esp32s3_toy_ssd1306.h"
+  cp "$ROOT_DIR/backend/qemu/new-files/hw/display/esp32s3_toy_hub75.c" \
+     "$SOURCE_DIR/hw/display/esp32s3_toy_hub75.c"
+  cp "$ROOT_DIR/backend/qemu/new-files/include/hw/display/esp32s3_toy_hub75.h" \
+     "$SOURCE_DIR/include/hw/display/esp32s3_toy_hub75.h"
+  touch "$APPLY_MARKER3"
+else
+  echo "Rock 4 toy-device patch already applied (idempotent): $APPLY_MARKER3"
+  if grep -q 'i2c_slave_create_simple(qdev_get_child_bus' "$SOURCE_DIR/hw/xtensa/esp32s3.c"; then
+    sed -i 's/i2c_slave_create_simple(qdev_get_child_bus(DEVICE(\&ss->i2c0), "i2c")/i2c_slave_create_simple(I2C_BUS(qdev_get_child_bus(DEVICE(\&ss->i2c0), "i2c"))/g' \
+      "$SOURCE_DIR/hw/xtensa/esp32s3.c"
+  fi
+  # Keep the source tree's additive new-files synchronized on incremental
+  # rebuilds too; the numbered patch and marker remain unchanged.
+  mkdir -p "$SOURCE_DIR/hw/i2c" "$SOURCE_DIR/hw/display" \
+           "$SOURCE_DIR/include/hw/i2c" "$SOURCE_DIR/include/hw/display"
+  cp "$ROOT_DIR/backend/qemu/new-files/hw/i2c/esp32s3_toy_ssd1306.c" \
+     "$SOURCE_DIR/hw/i2c/esp32s3_toy_ssd1306.c"
+  cp "$ROOT_DIR/backend/qemu/new-files/include/hw/i2c/esp32s3_toy_ssd1306.h" \
+     "$SOURCE_DIR/include/hw/i2c/esp32s3_toy_ssd1306.h"
+  cp "$ROOT_DIR/backend/qemu/new-files/hw/display/esp32s3_toy_hub75.c" \
+     "$SOURCE_DIR/hw/display/esp32s3_toy_hub75.c"
+  cp "$ROOT_DIR/backend/qemu/new-files/include/hw/display/esp32s3_toy_hub75.h" \
+     "$SOURCE_DIR/include/hw/display/esp32s3_toy_hub75.h"
+fi
+
+APPLY_MARKER4="$SOURCE_DIR/.protopandaemu-rock4-gpio-input-applied"
+if [[ ! -f "$APPLY_MARKER4" ]]; then
+  echo "+ applying Rock 4 GPIO input default for the active-low edit strap"
+  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0005-esp32-gpio-input-default-high.patch"
+  touch "$APPLY_MARKER4"
+else
+  echo "Rock 4 GPIO input default already applied (idempotent): $APPLY_MARKER4"
 fi
 
 cd "$SOURCE_DIR"

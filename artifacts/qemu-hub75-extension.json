@@ -1,18 +1,25 @@
 {
   "backend": "qemu",
   "backend_artifact": {
-    "archive_member": "qemu/bin/qemu-system-xtensa",
-    "archive_member_matches_executable": true,
-    "archive_member_sha256": "50813d894756c1448b8742e1d8db21e3cce0f4e85b56fe53e36760b941cb7f17",
-    "archive_path": "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu-9.2.2.tar.xz",
-    "archive_sha256": "0eecb2a34a5586c0e59110f77b9343b7b336e82fdb0e1a30e1dc1bab8a547e35",
+    "archive_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-build-inputs/qemu-source.tar.xz",
+    "archive_sha256": "66015182274b9fda7d3c7f19e8f160e6e23947217cc149c7aa97e1586dfc6198",
     "commit": "40edccac415693c5130f91c01d84176ae6008566",
-    "path": "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu/bin/qemu-system-xtensa",
+    "patches": [
+      "0001-esp32s3.c.patch",
+      "0002-hw-misc-meson.build.patch",
+      "0003-esp32s3-spi-dummy-io-scaling.patch",
+      "0004-esp32s3-toy-hub75-oled.patch",
+      "0005-esp32-gpio-input-default-high.patch"
+    ],
+    "path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa",
     "repo": "https://github.com/espressif/qemu",
-    "sha256": "50813d894756c1448b8742e1d8db21e3cce0f4e85b56fe53e36760b941cb7f17",
+    "sha256": "6751b1308c186f5fc60a7897ec4a0b9329cb89410402e09b4c657c55aa7c87d0",
+    "stock_binary_path": "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu/bin/qemu-system-xtensa",
+    "stock_binary_sha256": "50813d894756c1448b8742e1d8db21e3cce0f4e85b56fe53e36760b941cb7f17",
+    "variant": "experimental-patched-QEMU-fork",
     "version": "9.2.2 (esp_develop_9.2.2_20260417)",
     "version_command_returncode": 0,
-    "version_observed": "QEMU emulator version 9.2.2 (esp_develop_9.2.2_20260417)\nCopyright (c) 2003-2024 Fabrice Bellard and the QEMU Project developers"
+    "version_observed": "QEMU emulator version 9.2.2\nCopyright (c) 2003-2024 Fabrice Bellard and the QEMU Project developers"
   },
   "benchmarks": {
     "approx_guest_instructions_per_sec": "measurement_unavailable: no instruction counter or calibrated guest clock",
@@ -20,27 +27,71 @@
     "wall_clock_to_onLoop_ms": "measurement_unavailable: onLoop marker not observed"
   },
   "blocker": {
-    "kind": "toy device execution not attempted",
-    "text": "no compiled toy device model or minimal guest was built/executed in this cycle"
+    "kind": "partial original-firmware peripheral path",
+    "text": "only one of the required I2C/LCD_CAM paths was observed"
   },
   "commands": [
     [
-      "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu/bin/qemu-system-xtensa",
+      "bash",
+      "/home/jung/Projects/Proto/ProtopandaEmu/backend/qemu/build-experimental-qemu.sh",
+      "--out",
+      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/qemu-hub75"
+    ],
+    [
+      "bash",
+      "/home/jung/Projects/Proto/ProtopandaEmu/backend/qemu/build-toy-guest.sh",
+      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/toy-guest"
+    ],
+    [
+      "timeout",
+      "25s",
+      "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa",
+      "-nographic",
       "-machine",
-      "help"
+      "esp32s3",
+      "-m",
+      "8M",
+      "-kernel",
+      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/toy-guest/toy_guest.elf",
+      "-nic",
+      "none",
+      "-no-reboot",
+      "-monitor",
+      "none",
+      "-d",
+      "guest_errors"
     ],
     [
-      "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu/bin/qemu-system-xtensa",
-      "-device",
-      "help"
+      "bash",
+      "/home/jung/Projects/Proto/ProtopandaEmu/scripts/make-sd-image.sh",
+      "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hub75-scratch/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-card.img",
+      "--fixture-root",
+      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-fixture"
     ],
     [
-      "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu/bin/qemu-system-xtensa",
-      "-help"
+      "timeout",
+      "25s",
+      "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa",
+      "-nographic",
+      "-machine",
+      "esp32s3",
+      "-m",
+      "8M",
+      "-global",
+      "driver=ssi_psram,property=is_octal,value=true",
+      "-drive",
+      "file=/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin,if=mtd,format=raw",
+      "-drive",
+      "if=sd,index=0,file=/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hub75-scratch/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-card.img,format=raw,snapshot=on",
+      "-snapshot",
+      "-nic",
+      "none",
+      "-d",
+      "unimp,guest_errors"
     ]
   ],
-  "confirmed_scope": "none",
-  "finished_at_utc": "2026-11-04T15:53:54.713+00:00",
+  "confirmed_scope": "backend-only",
+  "finished_at_utc": "2026-11-04T22:28:44.907+00:00",
   "firmware": {
     "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin",
     "provenance": "Rock 1 artifacts/build-normal/release/merged_flash.bin",
@@ -49,19 +100,19 @@
   },
   "logs": {
     "combined": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/24c3cfd5-5672-41a2-beac-c6e03546c3a9/qemu-hub75-probe.combined.log",
-      "sha256": "0f8f07ea9eae2afb3d341f47d94e6c20d0bd4f5fe487642753fdbfd53cfcea22",
-      "size": 42565
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.combined.log",
+      "sha256": "743245a4e92408b4034cd58870fb3b0d43eb2350579189fecb19143d6656d596",
+      "size": 48097
     },
     "stderr": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/24c3cfd5-5672-41a2-beac-c6e03546c3a9/qemu-hub75-probe.stderr.log",
-      "sha256": "0b33651b07f37bae73a4db48ef97a4163b7996a04f84d3e1a23fd0ed47923a58",
-      "size": 104
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stderr.log",
+      "sha256": "eebc29270aeb1254443ce59b1637d5c9534fa81f2ff5ae9380909cee2b4281da",
+      "size": 47256
     },
     "stdout": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/24c3cfd5-5672-41a2-beac-c6e03546c3a9/qemu-hub75-probe.stdout.log",
-      "sha256": "6b55dc46b96a5960561bd8f5980edbcd7c2f43f56a5ec96e09e08d1c6a0d112b",
-      "size": 42434
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.log",
+      "sha256": "b1a0719c34d0ba7afe8ffd2f6d7294103ea25a3df73621eba1ef97350020c18c",
+      "size": 817
     }
   },
   "marker_evidence": {},
@@ -77,47 +128,120 @@
     "watchdog_reset": false
   },
   "mode": "hub75-probe",
-  "notes": [
-    "Phase B is NOT_EXECUTED because no toy device traffic was observed and the original firmware did not reach the required downstream peripheral path."
-  ],
+  "notes": [],
   "phase_a": {
-    "api_documented": "QEMU C device model source and TCG plugin API are available; the plugin API is instrumentation, not a peripheral model registration API",
-    "reason": "no compiled toy device model or minimal guest was built/executed in this cycle",
-    "source_audit": [
+    "api_documented": "additive C SysBus/I2C models wired into esp32s3; minimal Xtensa ELF drives I2C and LCD_CAM/DMA",
+    "build_log": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.experimental-build.log",
+      "sha256": "142d66a9eb98b92e090cd098bb6655983af5e54ef153740f9ab4fe3cb6afd43b",
+      "size": 119657
+    },
+    "guest": {
+      "build_log": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.toy-build.log",
+        "sha256": "29683b11f2b729789ada95675a28e00631f7764743d83aeee859be43274f6297",
+        "size": 1411
+      },
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/toy-guest/toy_guest.elf",
+      "sha256": "64bb778e3b34768bed31d4d357c8b48022a43b4761f7b7b6de3bb5247e583b3f"
+    },
+    "hub75_traffic_observed": true,
+    "logs": {
+      "combined": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.phase-a.stdout.combined.log",
+        "sha256": "d2adf44d8bb6324097f9e84c480d9997f150343c80442b654ee2ec2bda171429",
+        "size": 530
+      },
+      "stderr": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stderr.phase-a.stderr.log",
+        "sha256": "9c2b967d3bf59f67ad6d710dece7288aa98535e6542c77e2a967571e9589d84c",
+        "size": 509
+      },
+      "stdout": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.phase-a.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      }
+    },
+    "process": {
+      "elapsed_ms": 25010.279,
+      "first_loop_ms": null,
+      "first_stdout_ms": null,
+      "return_code": 124,
+      "timed_out": false
+    },
+    "ssd1306_traffic_observed": true,
+    "toy_device_executed": true,
+    "traffic_observed": true
+  },
+  "phase_a_status": "PASS",
+  "phase_b": {
+    "firmware_path_reached": true,
+    "hub75_traffic_observed": true,
+    "logs": {
+      "combined": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.phase-b.stdout.combined.log",
+        "sha256": "f2c3d7574ea0e2ba1295a088966715a6f8dd277363405a046a53d88187796f39",
+        "size": 47519
+      },
+      "stderr": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stderr.phase-b.stderr.log",
+        "sha256": "dea8d6b785f032fd10f9bc5be84da178c0aa46b10d41b1b9e52f58e928d7866c",
+        "size": 46714
+      },
+      "stdout": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.phase-b.stdout.log",
+        "sha256": "22ff1f92c65c0cee7a44a30a5986433e7c5b9a9763f7964571ac85f29f2ba748",
+        "size": 784
+      }
+    },
+    "process": {
+      "elapsed_ms": 25006.465,
+      "first_loop_ms": null,
+      "first_stdout_ms": 0.0,
+      "return_code": 124,
+      "timed_out": false
+    },
+    "sd_image": {
+      "build_log": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.sd-image.log",
+        "sha256": "88c51dfe8f3d3b9c689bd36b4bbdc03d01b356b159fca9f4d0b8f01b38874739",
+        "size": 334
+      },
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hub75-scratch/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-card.img",
+      "sha256": "16f5e4059452b185086875fccf3cbed517bf2db33f5808fb8a3fdf108b88bf79",
+      "sha256_file": {
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-card.img.sha256",
+        "sha256": "a590cee04be3d1fcf27d336be6464cdc1423738a797716b5ebd62231bb6f0625",
+        "size": 191
+      }
+    },
+    "source_mapping": [
       {
-        "bytes": 8991,
-        "excerpt": "#include \"qemu/osdep.h\"\n#include \"qemu/log.h\"\n#include \"qemu/module.h\"\n#include \"qemu/error-report.h\"\n#include \"hw/i2c/esp32_i2c.h\"\n#include \"hw/irq.h\"\n\nstatic void esp32_i2c_do_transaction(Esp32I2CState * s);\nstatic void esp32_i2c_update_irq(Esp32I2CState * s);\n\nstatic void esp32_i2c_reset_hold(Object *obj, ResetType type)\n{\n    Esp32I2CState * s = Esp32_I2C(obj);\n\n    fifo8_reset(&s->rx_fifo);\n    fifo8_reset(&s->tx_fifo);\n    s->trans_ongoing = false;\n    s->ctr_reg = 0;\n    s->timeout_reg = 0;\n    s->int_ena_reg = 0;\n    s->int_raw_reg = 0;\n    s->sda_hold_reg = 0;\n    s->sda_sample_reg = ",
-        "http": 200,
-        "sha256": "b823aaa9a940f3a5419bc4ca784356aaa503941b65a7c23a967552e170039176",
-        "url": "https://raw.githubusercontent.com/espressif/qemu/40edccac415693c5130f91c01d84176ae6008566/hw/i2c/esp32_i2c.c"
+        "evidence": "display.begin(SSD1306_SWITCHCAPVCC, 0x3C)",
+        "line": 26,
+        "path": ".work/upstream-v3.4.0/src/tools/oledscreen.cpp"
       },
       {
-        "bytes": 6799,
-        "excerpt": "/*\n * ESP32-S3 GDMA emulation\n *\n * Copyright (c) 2023-2025 Espressif Systems (Shanghai) Co. Ltd.\n *\n * This program is free software; you can redistribute it and/or modify\n * it under the terms of the GNU General Public License version 2 or\n * (at your option) any later version.\n */\n\n#include \"qemu/osdep.h\"\n#include \"qemu/error-report.h\"\n#include \"hw/dma/esp_gdma.h\"\n#include \"hw/dma/esp32s3_gdma.h\"\n\n\n#define ESP32S3_GDMA_WARNING    0\n#define ESP32S3_GDMA_DEBUG      0\n\n\n/* For now, make sure the generic interrupt implementation matches the S3's */\n_Static_assert((int) R_DMA_INT_RAW_IN_DSCR_EMP",
-        "http": 200,
-        "sha256": "e3b67e0e018d88269044c9b6673b2a4a5f630817a902e7f39317e70c5ae47e9f",
-        "url": "https://raw.githubusercontent.com/espressif/qemu/40edccac415693c5130f91c01d84176ae6008566/hw/dma/esp32s3_gdma.c"
+        "evidence": "I2CScan uses Wire.beginTransmission/endTransmission for addresses 1-126",
+        "lines": "100-110",
+        "path": ".work/upstream-v3.4.0/src/tools/devices.cpp"
       },
       {
-        "bytes": 33251,
-        "excerpt": "/*\n * Copyright (C) 2017, Emilio G. Cota <cota@braap.org>\n * Copyright (C) 2019, Linaro\n *\n * License: GNU GPL, version 2 or later.\n *   See the COPYING file in the top-level directory.\n *\n * SPDX-License-Identifier: GPL-2.0-or-later\n */\n\n#ifndef QEMU_QEMU_PLUGIN_H\n#define QEMU_QEMU_PLUGIN_H\n\n#include <glib.h>\n#include <inttypes.h>\n#include <stdbool.h>\n#include <stddef.h>\n\n/*\n * For best performance, build the plugin with -fvisibility=hidden so that\n * QEMU_PLUGIN_LOCAL is implicit. Then, just mark qemu_plugin_install with\n * QEMU_PLUGIN_EXPORT. For more info, see\n *   https://gcc.gnu.org/wiki",
-        "http": 200,
-        "sha256": "e4c5bf7e92075d7c1e6b1dcb6164bca6c549b2912a62b56ce1a777be4c7b8788",
-        "url": "https://raw.githubusercontent.com/espressif/qemu/40edccac415693c5130f91c01d84176ae6008566/include/qemu/qemu-plugin.h"
+        "evidence": "Hub75Display::begin calls matrix->begin()",
+        "line": 34,
+        "path": ".work/upstream-v3.4.0/include/tools/displays/hub75.hpp"
+      },
+      {
+        "evidence": "GDMA LCD trigger, completion poll, and LCD_CAM lcd_start",
+        "lines": "244-250,274,408",
+        "path": ".work/upstream-v3.4.0/.pio/libdeps/release/ESP32 HUB75 LED MATRIX PANEL DMA Display/src/platforms/esp32s3/gdma_lcd_parallel16.cpp"
       }
     ],
-    "source_paths": [
-      "hw/i2c/esp32_i2c.c",
-      "hw/dma/esp32s3_gdma.c",
-      "hw/sd/dwc_sdmmc.c",
-      "include/qemu/qemu-plugin.h"
-    ],
-    "toy_device_executed": false,
-    "traffic_observed": false
+    "ssd1306_traffic_observed": false,
+    "traffic_matches_firmware_paths": false
   },
-  "phase_a_status": "NOT_EXECUTED",
-  "phase_b": {},
-  "phase_b_status": "NOT_EXECUTED",
+  "phase_b_status": "TECHNICAL_BLOCKER",
   "profile": {
     "assertion": "N16R8: dual-core LX7, 240 MHz, 16 MiB flash, 8 MiB octal PSRAM",
     "chip": "esp32s3",
@@ -127,8 +251,8 @@
     "psram_bytes": 8388608,
     "psram_mode": "octal"
   },
-  "run_id": "24c3cfd5-5672-41a2-beac-c6e03546c3a9",
+  "run_id": "52736c59-0caa-4391-8457-f22fc0f2c814",
   "schema": "protopandaemu-spike/v1",
-  "started_at_utc": "2026-11-04T15:53:53.818+00:00",
-  "status": "NOT_EXECUTED"
+  "started_at_utc": "2026-11-04T22:27:10.948+00:00",
+  "status": "TECHNICAL_BLOCKER"
 }
