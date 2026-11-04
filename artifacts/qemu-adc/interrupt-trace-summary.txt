@@ -1,0 +1,33 @@
+# Interrupt-trace evidence summary (full 22MB log in .rf/qemu-int-trace.log, gitignored)
+
+## Line count and window
+204621 .rf/qemu-int-trace.log
+
+## First 3 / last 3 lines
+Adding SPI flash device
+xtensa_cpu_do_interrupt(3) pc = 400442a7, a0 = 00000000, ps = 00060f30, ccount = 00000000
+xtensa_cpu_do_interrupt(5) pc = 400442a7, a0 = 40034c48, ps = 00060f30, ccount = 00000000
+...
+xtensa_cpu_do_interrupt(5) pc = 4038b7fc, a0 = 80383889, ps = 00040533, ccount = 26bb5258
+xtensa_cpu_do_interrupt(5) pc = 4038b802, a0 = 80384a06, ps = 00040833, ccount = 26bb5258
+xtensa_cpu_do_interrupt(5) pc = 4038b7fc, a0 = 80383889, ps = 00040933, ccount = 23a79667
+
+## Event histogram
+  59534 xtensa_cpu_do_interrupt(5)
+  59488 xtensa_cpu_do_interrupt(6)
+  28528 xtensa_cpu_do_interrupt(11)
+  28527 xtensa_cpu_do_interrupt(EXC_IRQ)
+  28527 check_interrupts
+     10 xtensa_cpu_do_interrupt(3)
+
+## CCOUNT progression samples (proves guest time advances)
+ccount = 00000000
+ccount = 07bb7261
+ccount = 0b16d502
+ccount = 0e767a8a
+ccount = 11d4422e
+ccount = 1527b9b4
+ccount = 187a8a4d
+ccount = 1bd860a5
+
+068b4b97d86525d9234e275b4e123a73ede8867da6e5472aa2920ea427696ffb  .rf/qemu-int-trace.log

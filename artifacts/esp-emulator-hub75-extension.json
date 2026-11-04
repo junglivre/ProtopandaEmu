@@ -1,0 +1,115 @@
+{
+  "backend": "esp-emulator",
+  "backend_artifact": {
+    "archive_member": "esp-emu-0.51.0-x86_64-unknown-linux-gnu/esp-emu",
+    "archive_member_matches_executable": true,
+    "archive_member_sha256": "8df332148be34f0271d03d8cebf9f5ef0f67e95cee41e826b5b3f999e9047937",
+    "archive_path": "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/esp-emu-0.51.0.tar.gz",
+    "archive_sha256": "2b9e157470edb8b03167996550292c6df8cc6716025ebad8927db950d7931417",
+    "commit": "61d71cef2b1f13a936173c6d282a52c093137d6a",
+    "path": "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/esp-emu-0.51.0-x86_64-unknown-linux-gnu/esp-emu",
+    "repo": "https://github.com/espressif/esp-emulator",
+    "sha256": "8df332148be34f0271d03d8cebf9f5ef0f67e95cee41e826b5b3f999e9047937",
+    "version": "0.51.0",
+    "version_command_returncode": 0,
+    "version_observed": "\u257b \u257b \u257b \u257b\n   \u250f\u253b\u2501\u253b\u2501\u253b\u2501\u253b\u2513    \u250f\u2501\u2578\u250f\u2501\u2513\u250f\u2501\u2513   \u250f\u2501\u2578\u250f\u2533\u2513\u257b \u257b\n  \u2501\u252b       \u2523\u2501   \u2523\u2578 \u2517\u2501\u2513\u2523\u2501\u251b\u257a\u2501\u2578\u2523\u2578 \u2503\u2503\u2503\u2503 \u2503\n  \u2501\u252b ESP32 \u2523\u2501   \u2517\u2501\u2578\u2517\u2501\u251b\u2579     \u2517\u2501\u2578\u2579 \u2579\u2517\u2501\u251b\n  \u2501\u252b       \u2523\u2501\n   \u2517\u2533\u2501\u2533\u2501\u2533\u2501\u2533\u251b    ESP32 series emulator \u00b7 v0.51.0\n    \u2579 \u2579 \u2579 \u2579     https://github.com/espressif/esp-emulator\n\nesp-emu 0.51.0"
+  },
+  "benchmarks": {
+    "approx_guest_instructions_per_sec": "measurement_unavailable: no instruction counter or calibrated guest clock",
+    "wall_clock_to_first_uart_byte_ms": "measurement_unavailable: no captured stdout byte",
+    "wall_clock_to_onLoop_ms": "measurement_unavailable: onLoop marker not observed"
+  },
+  "blocker": {
+    "kind": "toy device execution not attempted",
+    "text": "release archive contains only the executable; the public distribution does not include a Rust core/device SDK"
+  },
+  "commands": [
+    [
+      "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/esp-emu-0.51.0-x86_64-unknown-linux-gnu/esp-emu",
+      "--help"
+    ]
+  ],
+  "confirmed_scope": "none",
+  "finished_at_utc": "2026-11-04T15:53:52.454+00:00",
+  "firmware": {
+    "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin",
+    "provenance": "Rock 1 artifacts/build-normal/release/merged_flash.bin",
+    "sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
+    "size": 16777216
+  },
+  "logs": {
+    "combined": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/65f57e0c-f599-46f8-9a5a-2a146c2b721a/esp-emulator-hub75-probe.combined.log",
+      "sha256": "2b66d2d327e2d6bfdd6c3f2a7d6d350051b09c3873a145e367b0555aaaca8764",
+      "size": 14143
+    },
+    "stderr": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/65f57e0c-f599-46f8-9a5a-2a146c2b721a/esp-emulator-hub75-probe.stderr.log",
+      "sha256": "0b33651b07f37bae73a4db48ef97a4163b7996a04f84d3e1a23fd0ed47923a58",
+      "size": 104
+    },
+    "stdout": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/65f57e0c-f599-46f8-9a5a-2a146c2b721a/esp-emulator-hub75-probe.stdout.log",
+      "sha256": "4fa704e95fad496fd0edfb4198ab38b77be5605a04392ced58b56661c6bfaf38",
+      "size": 14012
+    }
+  },
+  "marker_evidence": {},
+  "markers": {
+    "bootloader": false,
+    "guest_stderr": false,
+    "onLoop": false,
+    "onPreflight": false,
+    "onSetup": false,
+    "panic": false,
+    "rom": false,
+    "vfs_init": false,
+    "watchdog_reset": false
+  },
+  "mode": "hub75-probe",
+  "notes": [
+    "Phase B is NOT_EXECUTED because no toy device traffic was observed and the original firmware did not reach the required downstream peripheral path."
+  ],
+  "phase_a": {
+    "api_documented": "--i2c-dev register-file ACK/readback only; no SSD1306/HUB75 plugin API in the pinned binary/archive",
+    "archive_members": [
+      "esp-emu-0.51.0-x86_64-unknown-linux-gnu",
+      "esp-emu-0.51.0-x86_64-unknown-linux-gnu/esp-emu"
+    ],
+    "reason": "release archive contains only the executable; the public distribution does not include a Rust core/device SDK",
+    "source_audit": [
+      {
+        "bytes": 46081,
+        "excerpt": "# Emulator for ESP32 Series SoCs (Beta)\n\nA Rust-based emulator that runs ESP32-C3, ESP32-C5, ESP32-C6, ESP32-H2, ESP32-P4, ESP32-S31 (RISC-V) and ESP32-S3 (Xtensa LX7) firmware binaries \u2014 CPU, memory, WiFi, BLE, Thread, Ethernet, crypto, and more. This repo distributes the installer, prebuilt release binaries, user-facing docs, and helper tools.\n\n## Install\n\nOne-liner (Linux x86_64 / arm64, macOS Apple Silicon):\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/espressif/esp-emulator/main/install.sh | sh\n```\n\nThis downloads the latest binary to `$HOME/.local/bin/esp-emu`. If `~/.local/bin` i",
+        "http": 200,
+        "sha256": "051cf61a08e70a1bdaa058fa6443591041f2e7d5281381f2a310df244199aa8e",
+        "url": "https://raw.githubusercontent.com/espressif/esp-emulator/v0.51.0/README.md"
+      },
+      {
+        "bytes": 11357,
+        "excerpt": "                                 Apache License\n                           Version 2.0, January 2004\n                        http://www.apache.org/licenses/\n\n   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n   1. Definitions.\n\n      \"License\" shall mean the terms and conditions for use, reproduction,\n      and distribution as defined by Sections 1 through 9 of this document.\n\n      \"Licensor\" shall mean the copyright owner or entity authorized by\n      the copyright owner that is granting the License.\n\n      \"Legal Entity\" shall mean the union of the acting entity and all\n     ",
+        "http": 200,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "url": "https://raw.githubusercontent.com/espressif/esp-emulator/v0.51.0/LICENSE"
+      }
+    ],
+    "toy_device_executed": false,
+    "traffic_observed": false
+  },
+  "phase_a_status": "NOT_EXECUTED",
+  "phase_b": {},
+  "phase_b_status": "NOT_EXECUTED",
+  "profile": {
+    "assertion": "N16R8: dual-core LX7, 240 MHz, 16 MiB flash, 8 MiB octal PSRAM",
+    "chip": "esp32s3",
+    "cores": 2,
+    "cpu_mhz": 240,
+    "flash_bytes": 16777216,
+    "psram_bytes": 8388608,
+    "psram_mode": "octal"
+  },
+  "run_id": "65f57e0c-f599-46f8-9a5a-2a146c2b721a",
+  "schema": "protopandaemu-spike/v1",
+  "started_at_utc": "2026-11-04T15:53:51.923+00:00",
+  "status": "NOT_EXECUTED"
+}

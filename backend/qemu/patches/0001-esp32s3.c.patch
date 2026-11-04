@@ -1,0 +1,38 @@
+--- /tmp/qemu-pristine/qemu-esp_develop_9.2.2_20260417-src/hw/xtensa/esp32s3.c	2026-04-17 13:57:35.000000000 -0300
++++ /home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/hw/xtensa/esp32s3.c	2026-11-04 13:19:14.123314610 -0300
+@@ -49,6 +49,7 @@
+ #include "hw/misc/esp32s3_cache.h"
+ #include "hw/char/esp32s3_uart.h"
+ #include "hw/misc/esp32s3_rng.h"
++#include "hw/misc/esp32s3_sens.h"
+ 
+ #include "hw/nvram/esp32s3_efuse.h"
+ #include "hw/xtensa/esp32s3_clk.h"
+@@ -124,6 +125,7 @@
+     ESP32S3UARTState uart[ESP32S3_UART_COUNT];
+     ESP32S3GPIOState gpio;
+     Esp32s3RngState rng;
++    Esp32s3SensState sens;
+     Esp32S3TWAIState twai;
+ 
+     Esp32s3RtcCntlState rtc_cntl;
+@@ -641,6 +643,7 @@
+     object_initialize_child(OBJECT(ss), "jtag", &ss->jtag, TYPE_ESP32C3_JTAG);
+     object_initialize_child(OBJECT(ss), "gpio", &ss->gpio, TYPE_ESP32S3_GPIO);
+     object_initialize_child(OBJECT(ss), "rng", &ss->rng, TYPE_ESP32S3_RNG);
++    object_initialize_child(OBJECT(ss), "sens", &ss->sens, TYPE_ESP32S3_SENS);
+ 
+     object_initialize_child(OBJECT(ss), "clock", &ss->clock, TYPE_ESP32S3_CLOCK);
+ 
+@@ -781,6 +784,11 @@
+ 
+     }
+ 
++    {
++        qdev_realize(DEVICE(&ss->sens), &ss->periph_bus, &error_fatal);
++        esp32s3_soc_add_periph_device(sys_mem, &ss->sens, ESP32S3_SENS_BASE);
++    }
++
+ 
+     /* GDMA Realization */
+     {

@@ -1,0 +1,11 @@
+.work/
+.rf/
+artifacts/build-normal/
+artifacts/build-clean/
+__pycache__/
+VTO.md
+ISSUES.md
+SAME-PAGE-LOG.md
+AGENTS.md
+PLAN.md
+docs/

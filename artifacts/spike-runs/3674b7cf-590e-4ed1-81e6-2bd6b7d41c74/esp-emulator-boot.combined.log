@@ -1,0 +1,45 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:QIO, clock div:1
+load:0x3fce2820,len:0x10f0
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xbec
+load:0x403cb700,len:0x2fcc
+entry 0x403c88ac
+Starting proto panda v3.4.0!
+[374][I] Running I2C Scan...
+[376][I] I2C device found at address 80
+
+[2079][I] [Memory] 86.8% free - 274848 of 316728 bytes free (psram: 8388608 / 8378220  -> 99.9%)
+[3081][I] [Memory] 86.7% free - 274584 of 316728 bytes free (psram: 8388608 / 8378172  -> 99.9%)
+Starting sd card mode as MMC
+E (7910) sdmmc_periph: sdmmc_host_init: sdmmc_host_reset returned 0x107
+E (7910) vfs_fat_sdmmc: host init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+
+--- BACKEND STDERR ---
+
+    ╻ ╻ ╻ ╻
+   ┏┻━┻━┻━┻┓    ┏━╸┏━┓┏━┓   ┏━╸┏┳┓╻ ╻
+  ━┫       ┣━   ┣╸ ┗━┓┣━┛╺━╸┣╸ ┃┃┃┃ ┃
+  ━┫ ESP32 ┣━   ┗━╸┗━┛╹     ┗━╸╹ ╹┗━┛
+  ━┫       ┣━
+   ┗┳━┳━┳━┳┛    ESP32 series emulator · v0.51.0
+    ╹ ╹ ╹ ╹     https://github.com/espressif/esp-emulator
+
+[INFO  esp_emu] Loaded firmware: 16777216 bytes
+[INFO  machine] WiFi SoftAP: WPA2/WPA3 transition enabled (PWE Both) for SSID 'myssid'
+[INFO  net_user] user-net: DNS forwarder upstream [100.100.100.100:53, [fd7a:115c:a1e0::53]:53], restrict=true
+[INFO  net_user] user-net: backend ready (gateway 192.168.4.1, 0 hostfwd rules)
+[INFO  esp_emu] Network backend: user-mode (smoltcp NAT, 192.168.4.1 -> host loopback)
+[INFO  esp_emu] Loaded ROM ELF: <embedded esp32s3> (949552 bytes)
+[INFO  esp_emu] Booting from real ROM reset vector (use --skip-rom to bypass)
+[INFO  machine] ROM ELF: 5227 symbols loaded
+[INFO  machine] ROM ELF loaded, 10 functions patched for interception
+[INFO  machine] PSRAM configured as 8192 KB
+[INFO  machine] CPU reset at ROM entry: PC=0x40000400, SP=0x3FCEB710
+[INFO  esp_emu] Starting emulation (chip=esp32s3, batch_size=50000)
+[INFO  esp_emu] Timeout reached after 30.000725985s

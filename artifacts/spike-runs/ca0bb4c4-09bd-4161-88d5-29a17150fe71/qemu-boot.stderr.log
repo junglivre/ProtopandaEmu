@@ -1,0 +1,8 @@
+Adding SPI flash device
+M25P80: Read id (command 0x90/0xAB) is not supported by device
+M25P80: Unknown cmd 5a
+M25P80: Unknown cmd 7a
+M25P80: Unknown cmd 77
+Invalid read at addr 0x10200C, size 4, region 'er', reason: rejected
+Invalid read at addr 0x10200C, size 4, region 'er', reason: rejected
+qemu-system-xtensa: terminating on signal 15 from pid 2 (python3)

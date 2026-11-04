@@ -1,0 +1,183 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:QIO, clock div:1
+load:0x3fce2820,len:0x10f0
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xbec
+load:0x403cb700,len:0x2fcc
+entry 0x403c88ac
+E (303) esp_core_dump_flash: Incorrect size of core dump image: -65536
+Starting proto panda v3.4.0!
+[902][I] Running I2C Scan...
+[7268][I] Check the wiring please, no device has been found in the i2c bus.
+[11252][I] [Memory] 86.8% free - 274884 of 316728 bytes free (psram: 8388608 / 8378220  -> 99.9%)
+Starting sd card mode as MMC
+E (20864) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (20868) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (22504) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (22504) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (24138) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (24138) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (25772) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (25772) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (27406) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (27406) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (29040) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (29041) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (30674) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (30674) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (32311) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (32311) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (33942) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (33942) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (35576) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (35576) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (37211) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (37211) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (38846) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (38846) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (40479) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (40479) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (42115) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (42115) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (43748) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (43748) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (45382) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (45383) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (47018) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (47018) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (48652) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (48652) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (50282) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (50282) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (51917) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (51917) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (53550) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (53550) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (55185) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (55185) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (56820) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (56820) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (58448) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (58448) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (60083) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (60084) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (61719) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (61720) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (63352) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (63353) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (64987) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (64987) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (66624) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (66625) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (68261) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (68261) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (69892) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (69892) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (71519) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (71519) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (73152) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (73152) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (74785) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (74785) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (76419) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (76419) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (78053) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (78053) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (79687) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (79687) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (81326) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (81326) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (82959) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (82959) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (84595) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (84595) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (86230) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (86231) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed
+Starting sd card mode as MMC
+E (87868) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+E (87868) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+Card Mount Failed

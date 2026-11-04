@@ -1,0 +1,24 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:QIO, clock div:1
+load:0x3fce2820,len:0x10f0
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xbec
+load:0x403cb700,len:0x2fcc
+entry 0x403c88ac
+E (333) esp_core_dump_flash: Incorrect size of core dump image: -65536
+Starting proto panda v3.4.0!
+[965][I] Running I2C Scan...
+[7318][I] Check the wiring please, no device has been found in the i2c bus.
+[11293][I] [Memory] 86.8% free - 274884 of 316728 bytes free (psram: 8388608 / 8378220  -> 99.9%)
+Starting sd card mode as MMC
+[21589][I] Starting FFAT
+E (21803) vfs_fat_spiflash: s_f_mount_rw(108): f_mount failed after formatting (13)
+E (21807) vfs_fat_spiflash: esp_vfs_fat_spiflash_unmount_rw_wl(199): partition isn't registered, call esp_vfs_fat_spiflash_mount_rw_wl first
+[22531][I] FFat Mount Failed
+[23091][I] Formatting FFat
+E (23397) vfs_fat_spiflash: s_f_mount_rw(108): f_mount failed after formatting (13)
+E (23398) vfs_fat_spiflash: esp_vfs_fat_spiflash_unmount_rw_wl(199): partition isn't registered, call esp_vfs_fat_spiflash_mount_rw_wl first
+[24121][E] Corrupted FLASH. run 'esptool --chip esp32s3 --port COM10 erase_flash'

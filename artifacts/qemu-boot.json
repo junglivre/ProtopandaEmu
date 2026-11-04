@@ -1,0 +1,146 @@
+{
+  "backend": "qemu",
+  "backend_artifact": {
+    "archive_member": "qemu/bin/qemu-system-xtensa",
+    "archive_member_matches_executable": true,
+    "archive_member_sha256": "50813d894756c1448b8742e1d8db21e3cce0f4e85b56fe53e36760b941cb7f17",
+    "archive_path": "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu-9.2.2.tar.xz",
+    "archive_sha256": "0eecb2a34a5586c0e59110f77b9343b7b336e82fdb0e1a30e1dc1bab8a547e35",
+    "commit": "40edccac415693c5130f91c01d84176ae6008566",
+    "path": "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu/bin/qemu-system-xtensa",
+    "repo": "https://github.com/espressif/qemu",
+    "sha256": "50813d894756c1448b8742e1d8db21e3cce0f4e85b56fe53e36760b941cb7f17",
+    "version": "9.2.2 (esp_develop_9.2.2_20260417)",
+    "version_command_returncode": 0,
+    "version_observed": "QEMU emulator version 9.2.2 (esp_develop_9.2.2_20260417)\nCopyright (c) 2003-2024 Fabrice Bellard and the QEMU Project developers"
+  },
+  "benchmarks": {
+    "approx_guest_instructions_per_sec": "measurement_unavailable: no instruction counter or calibrated guest clock",
+    "wall_clock_to_first_uart_byte_ms": 58.501,
+    "wall_clock_to_onLoop_ms": "measurement_unavailable: onLoop marker not observed"
+  },
+  "blocker": {
+    "kind": "QEMU rejected MMIO read",
+    "line": 6,
+    "stream": "stderr",
+    "text": "Invalid read at addr 0x10200C, size 4, region 'er', reason: rejected"
+  },
+  "commands": [
+    [
+      "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu/bin/qemu-system-xtensa",
+      "-nographic",
+      "-machine",
+      "esp32s3",
+      "-m",
+      "8M",
+      "-global",
+      "driver=ssi_psram,property=is_octal,value=true",
+      "-drive",
+      "file=/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin,if=mtd,format=raw",
+      "-snapshot",
+      "-nic",
+      "none",
+      "-d",
+      "unimp,guest_errors"
+    ]
+  ],
+  "failure_evidence": [
+    {
+      "line": 3,
+      "stream": "stderr",
+      "text": "M25P80: Unknown cmd 5a"
+    },
+    {
+      "line": 4,
+      "stream": "stderr",
+      "text": "M25P80: Unknown cmd 7a"
+    },
+    {
+      "line": 5,
+      "stream": "stderr",
+      "text": "M25P80: Unknown cmd 77"
+    },
+    {
+      "line": 6,
+      "stream": "stderr",
+      "text": "Invalid read at addr 0x10200C, size 4, region 'er', reason: rejected"
+    },
+    {
+      "line": 7,
+      "stream": "stderr",
+      "text": "Invalid read at addr 0x10200C, size 4, region 'er', reason: rejected"
+    }
+  ],
+  "finished_at_utc": "2026-11-04T16:07:27.873+00:00",
+  "firmware": {
+    "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin",
+    "provenance": "Rock 1 artifacts/build-normal/release/merged_flash.bin",
+    "sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
+    "size": 16777216
+  },
+  "logs": {
+    "combined": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/5f4752b6-87b4-4b7d-9437-bc4ef6fb1724/qemu-boot.combined.log",
+      "sha256": "a3e1142932ef3c13d45999f658ce44f4b51368426a9eb869b88f3c2bc6bd3c74",
+      "size": 640
+    },
+    "stderr": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/5f4752b6-87b4-4b7d-9437-bc4ef6fb1724/qemu-boot.stderr.log",
+      "sha256": "dc7b65943a7378fb937e4923030333b56a05458c39be5e9bf409b328bde253ca",
+      "size": 365
+    },
+    "stdout": {
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/5f4752b6-87b4-4b7d-9437-bc4ef6fb1724/qemu-boot.stdout.log",
+      "sha256": "ef2c2644e8da0cc966ee0f0e291c0077b693c416264ecaa2b7eab38a56f552c5",
+      "size": 251
+    }
+  },
+  "marker_evidence": {
+    "bootloader": {
+      "line": 10,
+      "stream": "stdout",
+      "text": "entry 0x403c88ac"
+    },
+    "rom": {
+      "line": 1,
+      "stream": "stdout",
+      "text": "ESP-ROM:esp32s3-20210327"
+    }
+  },
+  "markers": {
+    "bootloader": true,
+    "guest_stderr": false,
+    "onLoop": false,
+    "onPreflight": false,
+    "onSetup": false,
+    "panic": false,
+    "rom": true,
+    "vfs_init": false,
+    "watchdog_reset": false
+  },
+  "mode": "boot",
+  "negative_marker_evidence": [],
+  "notes": [
+    "return_code=0",
+    "timed_out=True",
+    "vfs_init is conservative: only a downstream Starting Lua/Running upon marker counts"
+  ],
+  "process": {
+    "return_code": 0,
+    "terminated_by_harness": true,
+    "timed_out": true
+  },
+  "profile": {
+    "assertion": "N16R8: dual-core LX7, 240 MHz, 16 MiB flash, 8 MiB octal PSRAM",
+    "chip": "esp32s3",
+    "cores": 2,
+    "cpu_mhz": 240,
+    "flash_bytes": 16777216,
+    "psram_bytes": 8388608,
+    "psram_mode": "octal"
+  },
+  "run_id": "5f4752b6-87b4-4b7d-9437-bc4ef6fb1724",
+  "schema": "protopandaemu-spike/v1",
+  "started_at_utc": "2026-11-04T16:06:55.854+00:00",
+  "status": "TECHNICAL_BLOCKER"
+}

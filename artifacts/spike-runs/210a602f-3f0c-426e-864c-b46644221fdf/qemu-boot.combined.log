@@ -1,0 +1,3 @@
+
+--- BACKEND STDERR ---
+qemu-system-xtensa: -drive file=/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin,if=mtd,format=raw: Could not open temporary file '/var/tmp/vl.NXZUX3': Read-only file system

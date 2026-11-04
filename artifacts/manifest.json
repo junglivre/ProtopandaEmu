@@ -1,0 +1,159 @@
+{
+  "schema": 1,
+  "generated_at_utc": "2026-11-04T15:42:15.655783+00:00",
+  "upstream": {
+    "url": "https://github.com/mockthebear/Proto-panda",
+    "tag": "v3.4.0",
+    "commit": "97354713254a37691c250fd013bde108183174e5",
+    "checkout": "/home/jung/Projects/Proto/ProtopandaEmu/.work/upstream-v3.4.0",
+    "dirty": false
+  },
+  "resolved_packages": {
+    "Adafruit BusIO": "1.17.4",
+    "Adafruit GFX Library": "1.11.9",
+    "Adafruit SSD1306": "2.5.9",
+    "ArduinoJson": "7.0.4",
+    "AsyncTCP": "3.3.2",
+    "ESP32 HUB75 LED MATRIX PANEL DMA Display": "3.0.12",
+    "ESPAsyncWebServer": "3.6.0",
+    "FastLED": "3.10.3",
+    "NimBLE-Arduino": "2.5.0",
+    "PNGdec": "1.1.6",
+    "VL53L0X": "1.3.1",
+    "espressif32": "53.03.10+develop",
+    "framework-arduinoespressif32": "3.1.0",
+    "framework-arduinoespressif32-libs": "5.3.0+sha.a0f798cfc4",
+    "tool-esptoolpy": "4.8.1",
+    "tool-mkfatfs": "2.0.1",
+    "tool-mklittlefs": "3.2.0",
+    "tool-mkspiffs": "2.230.0",
+    "tool-riscv32-esp-elf-gdb": "14.2.0+20240403",
+    "tool-scons": "4.41101.0",
+    "tool-xtensa-esp-elf-gdb": "14.2.0+20240403",
+    "toolchain-riscv32-esp": "13.2.0+20240530",
+    "toolchain-xtensa-esp-elf": "13.2.0+20240530"
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/build-normal/debug/bootloader.bin",
+      "sha256": "c01a5cc1fe38a36ea400800c2aa17a0acaf02c22d9c23a994789c5c6b71fb558",
+      "size": 19728
+    },
+    {
+      "path": "artifacts/build-normal/debug/firmware.bin",
+      "sha256": "360f1660c5c12d57170141d4ba53db807c9aae20e9e09786abc9cbf0e0b674b2",
+      "size": 2299584
+    },
+    {
+      "path": "artifacts/build-normal/debug/firmware.elf",
+      "sha256": "35a091c6b9d3eedcb5fb3278196ac678f4cb9475f8698d1a802989f4e49ce88e",
+      "size": 47382196
+    },
+    {
+      "path": "artifacts/build-normal/debug/merged_flash.bin",
+      "sha256": "be22403889f93f066c9bd23647724e902c1d4fb1f0cfd8f7aac24181c8738d94",
+      "size": 16777216
+    },
+    {
+      "path": "artifacts/build-normal/debug/partition-source.csv",
+      "sha256": "7e9c47a69c32d377ea06ce01c26293aa92b1b244d3e16cce3b5bc4da9e28cbe7",
+      "size": 378
+    },
+    {
+      "path": "artifacts/build-normal/debug/partitions.bin",
+      "sha256": "ace02503447d0f470692e65fa76002f2d77a92dc81cd3813d8aa66718d716da9",
+      "size": 3072
+    },
+    {
+      "path": "artifacts/build-normal/release/bootloader.bin",
+      "sha256": "c01a5cc1fe38a36ea400800c2aa17a0acaf02c22d9c23a994789c5c6b71fb558",
+      "size": 19728
+    },
+    {
+      "path": "artifacts/build-normal/release/firmware.bin",
+      "sha256": "705c56ffdd2941a301a80e025af8a72cf6aa62c85ff4e10c2541cccb2cafb33b",
+      "size": 2216400
+    },
+    {
+      "path": "artifacts/build-normal/release/firmware.elf",
+      "sha256": "1af00f85665cb2db981d0bf538d4f638fa5dd7522d7027bd0c2f7db6a29c9fde",
+      "size": 47097212
+    },
+    {
+      "path": "artifacts/build-normal/release/merged_flash.bin",
+      "sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
+      "size": 16777216
+    },
+    {
+      "path": "artifacts/build-normal/release/partition-source.csv",
+      "sha256": "7e9c47a69c32d377ea06ce01c26293aa92b1b244d3e16cce3b5bc4da9e28cbe7",
+      "size": 378
+    },
+    {
+      "path": "artifacts/build-normal/release/partitions.bin",
+      "sha256": "ace02503447d0f470692e65fa76002f2d77a92dc81cd3813d8aa66718d716da9",
+      "size": 3072
+    },
+    {
+      "path": "artifacts/build-clean/debug/bootloader.bin",
+      "sha256": "c01a5cc1fe38a36ea400800c2aa17a0acaf02c22d9c23a994789c5c6b71fb558",
+      "size": 19728
+    },
+    {
+      "path": "artifacts/build-clean/debug/firmware.bin",
+      "sha256": "360f1660c5c12d57170141d4ba53db807c9aae20e9e09786abc9cbf0e0b674b2",
+      "size": 2299584
+    },
+    {
+      "path": "artifacts/build-clean/debug/firmware.elf",
+      "sha256": "35a091c6b9d3eedcb5fb3278196ac678f4cb9475f8698d1a802989f4e49ce88e",
+      "size": 47382196
+    },
+    {
+      "path": "artifacts/build-clean/debug/merged_flash.bin",
+      "sha256": "be22403889f93f066c9bd23647724e902c1d4fb1f0cfd8f7aac24181c8738d94",
+      "size": 16777216
+    },
+    {
+      "path": "artifacts/build-clean/debug/partition-source.csv",
+      "sha256": "7e9c47a69c32d377ea06ce01c26293aa92b1b244d3e16cce3b5bc4da9e28cbe7",
+      "size": 378
+    },
+    {
+      "path": "artifacts/build-clean/debug/partitions.bin",
+      "sha256": "ace02503447d0f470692e65fa76002f2d77a92dc81cd3813d8aa66718d716da9",
+      "size": 3072
+    },
+    {
+      "path": "artifacts/build-clean/release/bootloader.bin",
+      "sha256": "c01a5cc1fe38a36ea400800c2aa17a0acaf02c22d9c23a994789c5c6b71fb558",
+      "size": 19728
+    },
+    {
+      "path": "artifacts/build-clean/release/firmware.bin",
+      "sha256": "705c56ffdd2941a301a80e025af8a72cf6aa62c85ff4e10c2541cccb2cafb33b",
+      "size": 2216400
+    },
+    {
+      "path": "artifacts/build-clean/release/firmware.elf",
+      "sha256": "1af00f85665cb2db981d0bf538d4f638fa5dd7522d7027bd0c2f7db6a29c9fde",
+      "size": 47097212
+    },
+    {
+      "path": "artifacts/build-clean/release/merged_flash.bin",
+      "sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
+      "size": 16777216
+    },
+    {
+      "path": "artifacts/build-clean/release/partition-source.csv",
+      "sha256": "7e9c47a69c32d377ea06ce01c26293aa92b1b244d3e16cce3b5bc4da9e28cbe7",
+      "size": 378
+    },
+    {
+      "path": "artifacts/build-clean/release/partitions.bin",
+      "sha256": "ace02503447d0f470692e65fa76002f2d77a92dc81cd3813d8aa66718d716da9",
+      "size": 3072
+    }
+  ],
+  "source_date_epoch": 1792724753
+}
