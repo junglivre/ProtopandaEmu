@@ -28,7 +28,7 @@ Protopanda Emulator is being built for testing animations, checking panel wiring
 | Persistent state | Flash and private SD state survive a clean stop and restart. |
 | Folder-backed storage | A chosen folder becomes the firmware's SD card: safe staging, crash-recoverable commit, backups and conflict retention. |
 | OLED | Real SSD1306 I2C protocol, real 128x64 GDDRAM; byte-exact against an independently derived oracle. |
-| HUB75 | A peripheral probe reaches real GDMA traffic; continuous frame streaming is not implemented yet. |
+| HUB75 | Decoder corrected and verified against real GDMA traffic (continuous streaming, real multi-plane descriptors); geometry self-consistent with the real panel chain. No colored/animated frame captured yet — blocked on an unrelated Lua VFS gap, see `ISSUES.md`. |
 | Desktop launcher | Planned after storage and rendering. |
 
 The runner uses an experimental [Espressif QEMU](https://github.com/espressif/qemu) fork with patches in [`backend/qemu/`](backend/qemu/). Stock backend probes still have boot blockers. Results from the patched fork do not imply support in stock QEMU.

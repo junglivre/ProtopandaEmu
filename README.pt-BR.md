@@ -28,7 +28,7 @@ O Protopanda Emulator está em desenvolvimento para testar animações, conferir
 | Persistência | Flash e SD privado preservados entre parada limpa e reinício. |
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
-| HUB75 | Um teste de periférico alcança tráfego DMA real; a transmissão contínua de quadros ainda não está implementada. |
+| HUB75 | Decodificador corrigido e verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); geometria consistente com o encadeamento real de painéis. Nenhum quadro colorido/animado capturado ainda — bloqueado por um gap de VFS do Lua não relacionado, ver `ISSUES.md`. |
 | Launcher desktop | Previsto após armazenamento e renderização. |
 
 A execução usa um fork experimental do [QEMU da Espressif](https://github.com/espressif/qemu), com patches em [`backend/qemu/`](backend/qemu/). Os testes dos backends originais ainda encontram bloqueios de boot. Resultados do fork modificado não significam suporte no QEMU original.

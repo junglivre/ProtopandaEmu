@@ -53,6 +53,11 @@
   configuration and checks the captured splash-icon frame byte-for-byte
   against an oracle independently re-derived from the firmware's own
   compiled-in icon bitmap (not the renderer under test).
-- HUB75 continuous frame streaming (GDMA descriptor-ring consumption,
-  bitplane decode) remains unimplemented; the existing probe reaches
-  real GDMA traffic but still only reads one fixed-size sample.
+- Fix two real toy HUB75 bugs: it only decoded once instead of
+  continuously streaming like the real continuous DMA refresh, and it
+  assumed one descriptor per bit-plane when the real pinned library
+  packs a whole row's planes into the first descriptor. Decoded
+  geometry is now derived from, and matches, real GDMA traffic
+  (`docs/qemu-hub75-oled-spike.md`); capturing a colored/animated
+  frame is still blocked by an unrelated Lua VFS gap
+  (`models.json`/`io.open`, tracked in `ISSUES.md`).
