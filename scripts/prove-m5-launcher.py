@@ -78,7 +78,11 @@ def build_host_fixture(root: pathlib.Path) -> None:
         "expressions": [{"name": "idle", "frames": "idle", "animation": "loop"}],
     })
     (root / "wifi.json").write_text("{}\n", encoding="utf-8")
-    write_json(root / "keybinds.json", {"input": {"mode": "NONE", "drivers": ["generic"]}, "keybinds": {}})
+    write_json(root / "keybinds.json", {
+        "input": {"mode": "INFRARED", "drivers": ["generic"], "infrared_gpio": 21},
+        "infrared": {"1": {"usercode": "00FF", "bind": {}}},
+        "keybinds": {},
+    })
     write_json(root / "misc.json", {"overlays": {}, "servos": {}, "leds": {"pin_mode": "double", "groups": []},
                                      "boop": {"enabled": False}, "fft": {"enabled": False}, "scripts": {}})
     (root / "models.json").write_text("{}\n", encoding="utf-8")

@@ -1,11 +1,11 @@
 {
   "error_code": null,
   "exit_reason": "stopped",
-  "finished_at_utc": "2026-11-05T17:31:16.578+00:00",
+  "finished_at_utc": "2026-11-05T17:47:25.377+00:00",
   "firmware_sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
   "flash_final_sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
   "flash_initial_sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
-  "flash_state_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-flash/e0a30033de7d99c559ce39c5cae3fd8a6d3a6721a73f4fb9cc49fe9ab5fd3432.flash.bin",
+  "flash_state_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-flash/31f88b8faa3d29857978372b347abac71b026ff93772e64757e2946e843435b4.flash.bin",
   "hostdir": {
     "backups": [],
     "conflicts": [],
@@ -14,7 +14,7 @@
       "frames/solid.png": "ccc6da844fb6c24a1b1b43f898591ba39875dce1c17c8dd9207bae3e07ff6ef0",
       "hardware.json": "7a6a044413873ebbd4e09ce8d7aeda25d34f7436ee518a86103f595be0fc3a73",
       "init.lua": "dc8a1715b98ebc7d229b51a4dadc641abbaea2a4462c246aa766c265f6c17f5c",
-      "keybinds.json": "b47e6a8a1fe94ae1fdd81d8d5eabd5da908d626d0029dabf770f351110252951",
+      "keybinds.json": "c7b6db124b6d9bcf76aaf24a262bcdf832679c8c11d05b64004a3ef718bb949d",
       "lualib/boop.lua": "2bf9d72b37202502fcd010c7d4e46b6aa90577447c2f6d45305a41d2b5f0d653",
       "lualib/configloader.lua": "a081b971981223b26050855ccf6ea737dd4591d6b696eb79dab2873707d2c4fd",
       "lualib/dfplayer.lua": "6da972d5a08350927da2d977312f21868819db5f02147cca78dd29eae3585946",
@@ -41,13 +41,13 @@
       "models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
       "wifi.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
     },
-    "current_tree_sha256": "7df08f4755e81c55d5242c3596cc583839f77f4c92a7e7dd6e6178ccfc4de32d",
+    "current_tree_sha256": "33e638aa14491e07a2b833690919f214e300e7d38b427e7f162c1a7d61edc778",
     "guest_manifest": {
       "animation.json": "94a76cfb6a338bd454c50c13133090852f94ea75fe10882756f3f7df794d05a1",
       "frames/solid.png": "ccc6da844fb6c24a1b1b43f898591ba39875dce1c17c8dd9207bae3e07ff6ef0",
       "hardware.json": "7a6a044413873ebbd4e09ce8d7aeda25d34f7436ee518a86103f595be0fc3a73",
       "init.lua": "dc8a1715b98ebc7d229b51a4dadc641abbaea2a4462c246aa766c265f6c17f5c",
-      "keybinds.json": "b47e6a8a1fe94ae1fdd81d8d5eabd5da908d626d0029dabf770f351110252951",
+      "keybinds.json": "c7b6db124b6d9bcf76aaf24a262bcdf832679c8c11d05b64004a3ef718bb949d",
       "lualib/boop.lua": "2bf9d72b37202502fcd010c7d4e46b6aa90577447c2f6d45305a41d2b5f0d653",
       "lualib/configloader.lua": "a081b971981223b26050855ccf6ea737dd4591d6b696eb79dab2873707d2c4fd",
       "lualib/dfplayer.lua": "6da972d5a08350927da2d977312f21868819db5f02147cca78dd29eae3585946",
@@ -74,13 +74,13 @@
       "models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
       "wifi.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
     },
-    "root": "/tmp/protopandaemu-m5-proof-aak13fvx/host",
+    "root": "/tmp/protopandaemu-m5-proof-zlavqc36/host",
     "start_manifest": {
       "animation.json": "94a76cfb6a338bd454c50c13133090852f94ea75fe10882756f3f7df794d05a1",
       "frames/solid.png": "ccc6da844fb6c24a1b1b43f898591ba39875dce1c17c8dd9207bae3e07ff6ef0",
       "hardware.json": "7a6a044413873ebbd4e09ce8d7aeda25d34f7436ee518a86103f595be0fc3a73",
       "init.lua": "dc8a1715b98ebc7d229b51a4dadc641abbaea2a4462c246aa766c265f6c17f5c",
-      "keybinds.json": "b47e6a8a1fe94ae1fdd81d8d5eabd5da908d626d0029dabf770f351110252951",
+      "keybinds.json": "c7b6db124b6d9bcf76aaf24a262bcdf832679c8c11d05b64004a3ef718bb949d",
       "lualib/boop.lua": "2bf9d72b37202502fcd010c7d4e46b6aa90577447c2f6d45305a41d2b5f0d653",
       "lualib/configloader.lua": "a081b971981223b26050855ccf6ea737dd4591d6b696eb79dab2873707d2c4fd",
       "lualib/dfplayer.lua": "6da972d5a08350927da2d977312f21868819db5f02147cca78dd29eae3585946",
@@ -107,11 +107,11 @@
       "models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
       "wifi.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
     },
-    "start_tree_sha256": "7df08f4755e81c55d5242c3596cc583839f77f4c92a7e7dd6e6178ccfc4de32d",
+    "start_tree_sha256": "33e638aa14491e07a2b833690919f214e300e7d38b427e7f162c1a7d61edc778",
     "sync_model": "clean-stop-only",
     "sync_status": "committed",
-    "tree_hash_current": "7df08f4755e81c55d5242c3596cc583839f77f4c92a7e7dd6e6178ccfc4de32d",
-    "tree_hash_start": "7df08f4755e81c55d5242c3596cc583839f77f4c92a7e7dd6e6178ccfc4de32d"
+    "tree_hash_current": "33e638aa14491e07a2b833690919f214e300e7d38b427e7f162c1a7d61edc778",
+    "tree_hash_start": "33e638aa14491e07a2b833690919f214e300e7d38b427e7f162c1a7d61edc778"
   },
   "markers": {
     "bootloader": true,
@@ -125,7 +125,7 @@
     "watchdog_reset": false
   },
   "process_exited": true,
-  "profile_hash": "e0a30033de7d99c559ce39c5cae3fd8a6d3a6721a73f4fb9cc49fe9ab5fd3432",
+  "profile_hash": "31f88b8faa3d29857978372b347abac71b026ff93772e64757e2946e843435b4",
   "qemu_argv": [
     "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa",
     "-nographic",
@@ -136,9 +136,9 @@
     "-global",
     "driver=ssi_psram,property=is_octal,value=true",
     "-drive",
-    "file=/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-flash/e0a30033de7d99c559ce39c5cae3fd8a6d3a6721a73f4fb9cc49fe9ab5fd3432.flash.bin,if=mtd,format=raw",
+    "file=/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-flash/31f88b8faa3d29857978372b347abac71b026ff93772e64757e2946e843435b4.flash.bin,if=mtd,format=raw",
     "-drive",
-    "if=sd,index=0,file=/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/7a11c5c4-1b29-4ac5-82c6-694383f81087/sd-card.img,format=raw",
+    "if=sd,index=0,file=/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/cd0cf587-41ec-4b4c-81c4-505b1491c849/sd-card.img,format=raw",
     "-nic",
     "none",
     "-d",
@@ -146,7 +146,7 @@
     "-serial",
     "mon:stdio"
   ],
-  "qemu_pid": 1293424,
+  "qemu_pid": 1384779,
   "qemu_started": true,
   "resources": {
     "heap_free_pct": "unavailable: no firmware memory line yet",
@@ -154,11 +154,11 @@
     "psram_total_bytes": "unavailable: no firmware memory line yet"
   },
   "schema": "protopandaemu/session-report/v1",
-  "sd_image_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/7a11c5c4-1b29-4ac5-82c6-694383f81087/sd-card.img",
+  "sd_image_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/cd0cf587-41ec-4b4c-81c4-505b1491c849/sd-card.img",
   "sd_state_path": null,
-  "session_id": "7a11c5c4-1b29-4ac5-82c6-694383f81087",
-  "started_at_utc": "2026-11-05T17:31:15.155+00:00",
-  "stderr_log_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/7a11c5c4-1b29-4ac5-82c6-694383f81087/qemu.stderr.log",
-  "uart_log_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/7a11c5c4-1b29-4ac5-82c6-694383f81087/qemu.uart.log",
-  "wall_clock_ms": 1422.827
+  "session_id": "cd0cf587-41ec-4b4c-81c4-505b1491c849",
+  "started_at_utc": "2026-11-05T17:47:23.955+00:00",
+  "stderr_log_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/cd0cf587-41ec-4b4c-81c4-505b1491c849/qemu.stderr.log",
+  "uart_log_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/cd0cf587-41ec-4b4c-81c4-505b1491c849/qemu.uart.log",
+  "wall_clock_ms": 1422.641
 }

@@ -146,6 +146,8 @@ class LauncherApp:
         self.handle: supervisor.SessionHandle | None = None
         self.last_report: dict[str, Any] | None = None
         self._after_id: str | None = None
+        self._oled_photo: tk.PhotoImage | None = None
+        self._hub75_photo: tk.PhotoImage | None = None
 
         self.hostdir_var = tk.StringVar(value="Nenhuma pasta selecionada")
         self.profile_hash_var = tk.StringVar(value="Perfil: —")
@@ -338,28 +340,57 @@ class LauncherApp:
             return None
 
     def _warn_if_unsupported_input_mode(self) -> None:
-        """keybinds.json's 'BLE' input mode reaches startBLE()/startBLERadio(),
-        which this experimental QEMU fork has no BLE controller model for; the
-        real pinned firmware hits a Guru Meditation assert and reboots forever
-        (confirmed: reproducible on every boot). Warn instead of silently
-        bootlooping the user's real SD card config."""
+        """Three real, confirmed gaps in `.work/upstream-v3.4.0/lualib/input.lua`
+        this backend/firmware pair cannot avoid:
+        - 'BLE': reaches startBLE()/startBLERadio() with no BLE controller
+          modeled, hits a Guru Meditation assert, reboots forever.
+        - 'NONE': input.Load() accepts it, but the separate input.Start()
+          only implements 'BLE'/'INFRARED' and errors
+          ("Invalid input mode 'NONE'") for anything else -- a real
+          firmware inconsistency between the two functions, not something
+          a backend fix can paper over.
+        - 'INFRARED' without a numeric input.infrared_gpio: input.Load()
+          requires it and errors otherwise.
+        Warn instead of silently stalling the user's real SD card config.
+        """
         if self.hostdir is None:
             return
         try:
             keybinds = json.loads((self.hostdir / "keybinds.json").read_text(encoding="utf-8"))
-            mode = str(keybinds.get("input", {}).get("mode", "")).upper()
+            mode = str(keybinds.get("input", {}).get("mode") or "BLE").upper()
         except (OSError, json.JSONDecodeError, AttributeError):
             return
         if mode == "BLE":
             messagebox.showwarning(
-                "keybinds.json usa input mode BLE",
-                "Este cartão usa input.mode=\"BLE\". O backend QEMU experimental não "
-                "emula um controlador BLE: o firmware real trava com um assert ao "
-                "chamar startBLE() e reinicia em loop infinito (reproduzido e "
-                "confirmado). Para testar neste emulador, mude input.mode para "
-                "\"none\" ou \"infrared\" no keybinds.json. A sessão vai iniciar "
-                "mesmo assim, mas provavelmente vai bootloopar.",
+                "keybinds.json usa input.mode=\"BLE\"",
+                "O backend QEMU experimental não emula um controlador BLE: o "
+                "firmware real trava com um assert ao chamar startBLE() e "
+                "reinicia em loop infinito (reproduzido e confirmado). Para "
+                "testar neste emulador, mude input.mode para \"infrared\" (com "
+                "um infrared_gpio numérico) no keybinds.json. A sessão vai "
+                "iniciar mesmo assim, mas vai bootloopar.",
                 parent=self.root)
+        elif mode == "NONE":
+            messagebox.showwarning(
+                "keybinds.json usa input.mode=\"none\"",
+                "input.lua aceita \"none\" em input.Load(), mas a função "
+                "separada input.Start() só trata \"BLE\"/\"INFRARED\" e dá erro "
+                "(\"Invalid input mode 'NONE'\") para qualquer outro valor -- "
+                "uma inconsistência real do firmware entre as duas funções, "
+                "não algo que o backend possa contornar. Use \"infrared\" (com "
+                "um infrared_gpio numérico) para testar neste emulador.",
+                parent=self.root)
+        elif mode == "INFRARED":
+            gpio = keybinds.get("input", {}).get("infrared_gpio")
+            if not isinstance(gpio, (int, float)) or isinstance(gpio, bool):
+                messagebox.showwarning(
+                    "keybinds.json: infrared_gpio ausente",
+                    "input.mode=\"infrared\" exige um campo numérico "
+                    "infrared_gpio em input.Load(); sem ele o firmware dá erro "
+                    "(\"keybinds.json missing 'infrared_gpio' in input "
+                    "segment\"). Adicione, por exemplo, "
+                    "\"infrared_gpio\": 21 ao objeto input do keybinds.json.",
+                    parent=self.root)
 
     def start_session(self) -> None:
         if self.handle is not None and not self.handle.wait(timeout=0):
@@ -442,31 +473,39 @@ class LauncherApp:
 
     def _draw_oled(self, dump: dict[str, Any]) -> None:
         canvas = self.oled_canvas
-        canvas.delete("all")
         width, height, data = dump["width"], dump["height"], dump["data"]
         if len(data) != width * ((height + 7) // 8):
             return
-        scale = max(1, min(canvas.winfo_width() // width, canvas.winfo_height() // height))
+        on, off = "#ffffff", "#202020"
+        rows = []
         for y in range(height):
-            for x in range(width):
-                on = bool(data[(y // 8) * width + x] & (1 << (y & 7)))
-                if on:
-                    canvas.create_rectangle(x * scale, y * scale, (x + 1) * scale, (y + 1) * scale,
-                                            fill="#9cff57", outline="")
+            row_bytes = data[(y // 8) * width:(y // 8) * width + width]
+            bit = 1 << (y & 7)
+            rows.append(" ".join(on if byte & bit else off for byte in row_bytes))
+        photo = tk.PhotoImage(width=width, height=height)
+        photo.put(" ".join(f"{{{row}}}" for row in rows))
+        scale = max(1, min(canvas.winfo_width() // width, canvas.winfo_height() // height))
+        self._oled_photo = photo.zoom(scale, scale)
+        canvas.delete("all")
+        canvas.create_image(0, 0, anchor="nw", image=self._oled_photo)
 
     def _draw_hub75(self, dump: dict[str, Any]) -> None:
         canvas = self.hub_canvas
-        canvas.delete("all")
         width, height, data = dump["width"], dump["height"], dump["data"]
         if len(data) != width * height * 3:
             return
+        rows = []
+        for y in range(height):
+            base = y * width * 3
+            pixels = (f"#{data[base + i * 3]:02x}{data[base + i * 3 + 1]:02x}{data[base + i * 3 + 2]:02x}"
+                     for i in range(width))
+            rows.append(" ".join(pixels))
+        photo = tk.PhotoImage(width=width, height=height)
+        photo.put(" ".join(f"{{{row}}}" for row in rows))
         scale = max(1, min(canvas.winfo_width() // width, canvas.winfo_height() // height))
-        for index in range(width * height):
-            red, green, blue = data[index * 3:index * 3 + 3]
-            if red or green or blue:
-                x, y = index % width, index // width
-                canvas.create_rectangle(x * scale, y * scale, (x + 1) * scale, (y + 1) * scale,
-                                        fill=f"#{red:02x}{green:02x}{blue:02x}", outline="")
+        self._hub75_photo = photo.zoom(scale, scale)
+        canvas.delete("all")
+        canvas.create_image(0, 0, anchor="nw", image=self._hub75_photo)
 
     def close(self) -> None:
         if self._after_id is not None:
