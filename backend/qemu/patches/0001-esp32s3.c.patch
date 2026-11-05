@@ -1,5 +1,5 @@
---- /tmp/qemu-pristine/qemu-esp_develop_9.2.2_20260417-src/hw/xtensa/esp32s3.c	2026-04-17 13:57:35.000000000 -0300
-+++ /home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/hw/xtensa/esp32s3.c	2026-11-04 13:19:14.123314610 -0300
+--- a/hw/xtensa/esp32s3.c
++++ b/hw/xtensa/esp32s3.c
 @@ -49,6 +49,7 @@
  #include "hw/misc/esp32s3_cache.h"
  #include "hw/char/esp32s3_uart.h"

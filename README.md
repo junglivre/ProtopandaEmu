@@ -26,7 +26,7 @@ Protopanda Emulator is being built for testing animations, checking panel wiring
 | Firmware build | Pinned Proto-panda v3.4.0 build and artifact verification. |
 | Headless runner | Profile validation, live UART, resource reports and bounded sessions. |
 | Persistent state | Flash and private SD state survive a clean stop and restart. |
-| Folder-backed storage | Read-path prototype verified; safe write-back is in progress. |
+| Folder-backed storage | A chosen folder becomes the firmware's SD card: safe staging, crash-recoverable commit, backups and conflict retention. |
 | HUB75 and OLED | Peripheral probes exist; complete rendering is not available yet. |
 | Desktop launcher | Planned after storage and rendering. |
 
@@ -76,7 +76,29 @@ python3 -m protopandaemu run \
 
 UART streams to the terminal. The JSON report records the firmware and profile hashes, boot markers, available guest memory metrics and the exit reason. `Ctrl+C` stops the backend; reaching the timeout returns exit code `124`. Guest networking is disabled.
 
-The importable API is `protopandaemu.supervisor.run_session(...)`. Call `SessionHandle.stop()` for a clean stop. Flash and SD state are separate persistence domains; private SD persistence is not folder write-back.
+The importable API is `protopandaemu.supervisor.run_session(...)`. Call `SessionHandle.stop()` for a clean stop. Flash state and the folder-backed SD domain are kept separate, as described next.
+
+### Point the firmware at a folder
+
+Add `--hostdir` to use a real folder instead of the generated sample SD card. The folder must already contain `hardware.json`, `animation.json` and any Lua/PNG assets the firmware reads; see the pinned `.work/upstream-v3.4.0` checkout for the stock layout.
+
+```bash
+python3 -m protopandaemu run \
+  --profile profile.json \
+  --hostdir /path/to/your/protopanda-data \
+  --report run.report.json \
+  --timeout 90
+```
+
+The folder is staged into a private image before boot and never passed to QEMU directly. On a clean stop, guest writes are committed back through a durable journal: new and changed files are written, backed up and renamed as one recoverable unit. A file the firmware changed while you also edited it on the host is never silently overwritten — the guest version is kept at a `<name>.protopandaemu-conflict-...` sibling instead, and the session report lists every conflict and backup. If a run is interrupted mid-commit, the next session (or `python3 -m protopandaemu fsck-hostdir /path/to/your/protopanda-data`) finishes or rolls back the same commit before anything else touches the folder.
+
+Run the end-to-end check for this path with:
+
+```bash
+python3 scripts/prove-m3.py
+```
+
+This stages a real folder, boots the firmware, confirms the guest's own Lua read/write reached the host, and exercises the full error, conflict and crash-recovery matrix with real filesystem faults.
 
 ## Build and inspect
 
@@ -100,8 +122,7 @@ A probe can report a blocker or `NOT_EXECUTED`; neither means the firmware passe
 
 ## Next milestones
 
-1. Complete folder-backed storage with safe write-back, backups and conflict recovery.
-2. Render HUB75 and OLED output from the firmware's actual peripheral traffic.
-3. Add a desktop launcher with per-panel wiring controls, previews and live diagnostics.
+1. Render HUB75 and OLED output from the firmware's actual peripheral traffic.
+2. Add a desktop launcher with per-panel wiring controls, previews and live diagnostics.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for implemented changes.

@@ -21,6 +21,8 @@ import time
 import uuid
 from typing import Any
 
+from .hostdir import HostDirError, HostDirSession
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 QEMU_DEFAULT = ROOT / ".work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa"
@@ -316,8 +318,7 @@ def _copy_generated_file(source: pathlib.Path, destination: pathlib.Path) -> Non
             pass
 
 
-def _make_sd_image(session_dir: pathlib.Path, hostdir: str | os.PathLike[str] | None,
-                   sd_state: pathlib.Path) -> pathlib.Path:
+def _make_sd_image(session_dir: pathlib.Path, sd_state: pathlib.Path) -> pathlib.Path:
     image = session_dir / "sd-card.img"
     if sd_state.exists():
         if not sd_state.is_file():
@@ -345,19 +346,6 @@ def _make_sd_image(session_dir: pathlib.Path, hostdir: str | os.PathLike[str] | 
         '{"overlays":{},"servos":{},"leds":{"pin_mode":"double","groups":[]},"boop":{"enabled":false},'
         '"fft":{"enabled":false},"scripts":{}}\n', encoding="utf-8")
     (fixture / "models.json").write_text("{}\n", encoding="utf-8")
-    if hostdir is not None:
-        source = pathlib.Path(hostdir).expanduser()
-        if not source.is_absolute() or not source.is_dir():
-            raise ProfileError("hostdir must be an existing absolute directory", code="hostdir_invalid")
-        # M2 accepts the shared API's hostdir argument without ever putting it
-        # in QEMU argv.  The full safe sync/commit policy belongs to M3.
-        for name in ("animation.json", "wifi.json"):
-            candidate = source / name
-            if candidate.is_file():
-                shutil.copyfile(candidate, fixture / name)
-        source_frames = source / "frames"
-        if source_frames.is_dir():
-            shutil.copytree(source_frames, fixture / "frames", dirs_exist_ok=True)
     if not any((fixture / "frames").iterdir()):
         _write_png(fixture / "frames/idle.png")
     build = subprocess.run(["bash", str(SD_BUILDER), str(image), "--fixture-root", str(fixture)],
@@ -429,7 +417,8 @@ class SessionHandle:
 
     def __init__(self, *, profile: dict[str, Any], profile_hash: str, firmware: pathlib.Path,
                  flash_state: pathlib.Path, session_dir: pathlib.Path, sd_image: pathlib.Path,
-                 sd_state: pathlib.Path, firmware_sha256: str, flash_initial_sha256: str,
+                 sd_state: pathlib.Path | None, firmware_sha256: str, flash_initial_sha256: str,
+                 host_session: HostDirSession | None,
                  timeout: float, process: subprocess.Popen[bytes], monitor_stdin: Any,
                  qemu_argv: list[str], uart_log: pathlib.Path):
         self._profile = profile
@@ -439,6 +428,7 @@ class SessionHandle:
         self._session_dir = session_dir
         self._sd_image = sd_image
         self._sd_state = sd_state
+        self._host_session = host_session
         self._timeout = timeout
         self._process = process
         self._monitor_stdin = monitor_stdin
@@ -472,8 +462,21 @@ class SessionHandle:
             "uart_log_path": str(uart_log),
             "stderr_log_path": str(session_dir / "qemu.stderr.log"),
             "sd_image_path": str(sd_image),
-            "sd_state_path": str(sd_state),
+            "sd_state_path": str(sd_state) if sd_state is not None else None,
         }
+        if host_session is not None:
+            self._report["hostdir"] = {
+                "root": str(host_session.root),
+                "sync_model": "clean-stop-only",
+                "start_manifest": copy.deepcopy(host_session.start_manifest),
+                "current_manifest": copy.deepcopy(host_session.start_manifest),
+                "guest_manifest": None,
+                "start_tree_sha256": host_session.start_tree_sha256,
+                "current_tree_sha256": host_session.start_tree_sha256,
+                "conflicts": [],
+                "backups": [],
+                "sync_status": "pending",
+            }
         self._uart_log = uart_log
         self._stderr_log = session_dir / "qemu.stderr.log"
         self._uart_pending = ""
@@ -511,11 +514,11 @@ class SessionHandle:
                     self._report["markers"]["rom"] = True
                 if re.search(r"^entry\s+0x[0-9a-fA-F]+$", clean):
                     self._report["markers"]["bootloader"] = True
-                if re.search(r"M2_MARKER\s+onSetup\s+completed", clean):
+                if re.search(r"M(?:2|3)_MARKER\s+onSetup\s+completed", clean):
                     self._report["markers"]["onSetup"] = True
-                if re.search(r"M2_MARKER\s+onPreflight\s+completed", clean):
+                if re.search(r"M(?:2|3)_MARKER\s+onPreflight\s+completed", clean):
                     self._report["markers"]["onPreflight"] = True
-                if re.search(r"M2_MARKER\s+onLoop\s+completed", clean):
+                if re.search(r"M(?:2|3)_MARKER\s+onLoop\s+completed", clean):
                     self._report["markers"]["onLoop"] = True
                 if re.search(r"^(Starting Lua|Running upon)\b", clean):
                     self._report["markers"]["vfs_init"] = True
@@ -616,12 +619,23 @@ class SessionHandle:
                     else:
                         reason = "crash"
                     if reason == "stopped":
-                        try:
-                            _copy_generated_file(self._sd_image, self._sd_state)
-                        except (OSError, ProfileError) as exc:
-                            reason = "crash"
-                            self._report["error_code"] = "sd_state_persist_failed"
-                            self._report["error"] = str(exc)
+                        if self._host_session is not None:
+                            try:
+                                sync = self._host_session.sync(self._sd_image)
+                                self._report["hostdir"].update(sync)
+                            except (HostDirError, OSError) as exc:
+                                reason = "sync_failed"
+                                self._report["error_code"] = getattr(exc, "code", "hostdir_sync_failed")
+                                self._report["error"] = str(exc)
+                        else:
+                            try:
+                                _copy_generated_file(self._sd_image, self._sd_state)
+                            except (OSError, ProfileError) as exc:
+                                reason = "crash"
+                                self._report["error_code"] = "sd_state_persist_failed"
+                                self._report["error"] = str(exc)
+                    if self._host_session is not None and self._report.get("hostdir", {}).get("sync_status") == "pending":
+                        self._report["hostdir"]["sync_status"] = "not_committed"
                     self._report["exit_reason"] = reason
                     self._report["finished_at_utc"] = utc_now()
                     self._report["wall_clock_ms"] = round((time.monotonic() - self._started_mono) * 1000, 3)
@@ -631,6 +645,8 @@ class SessionHandle:
                         self._report["flash_final_sha256"] = None
                     self._finished.set()
                     self._condition.notify_all()
+            if self._host_session is not None:
+                self._host_session.release()
             try:
                 self._monitor_stdin.close()
             except OSError:
@@ -723,9 +739,22 @@ def run_session(profile_path: str | os.PathLike[str], hostdir: str | os.PathLike
         flash_state = requested_flash.resolve()
         _safe_qemu_path(flash_state, "flash_state_path")
         _reject_flash_alias(firmware, requested_flash, flash_state)
-        sd_state = SD_ROOT / f"{profile_hash}.sd.img"
-        _safe_qemu_path(sd_state, "sd_state_path")
-        sd_image = _make_sd_image(session_dir, hostdir, sd_state)
+        sd_state: pathlib.Path | None
+        host_session: HostDirSession | None = None
+        if hostdir is not None:
+            try:
+                host_session = HostDirSession.open(hostdir, session_dir, session_id)
+                sd_image = host_session.build_image(session_dir / "sd-card.img")
+            except HostDirError as exc:
+                if host_session is not None:
+                    host_session.release()
+                raise ProfileError(str(exc), code=exc.code, profile_hash=profile_hash,
+                                   profile_path=profile_file) from exc
+            sd_state = None
+        else:
+            sd_state = SD_ROOT / f"{profile_hash}.sd.img"
+            _safe_qemu_path(sd_state, "sd_state_path")
+            sd_image = _make_sd_image(session_dir, sd_state)
         firmware_sha256 = _stable_sha256(firmware, "firmware_image")
         if firmware_sha256 != profile["firmware_sha256"].lower() or firmware_sha256 != EXPECTED_FIRMWARE_SHA256:
             raise ProfileError("firmware changed before spawn or is no longer pinned",
@@ -752,13 +781,18 @@ def run_session(profile_path: str | os.PathLike[str], hostdir: str | os.PathLike
                              flash_state=flash_state, session_dir=session_dir, sd_image=sd_image,
                              sd_state=sd_state, firmware_sha256=firmware_sha256,
                              flash_initial_sha256=flash_initial_sha256,
+                             host_session=host_session,
                              timeout=duration, process=process, monitor_stdin=process.stdin,
                              qemu_argv=argv,
                              uart_log=session_dir / "qemu.uart.log")
     except ProfileError:
+        if 'host_session' in locals() and host_session is not None:
+            host_session.release()
         shutil.rmtree(session_dir, ignore_errors=True)
         raise
     except (OSError, subprocess.SubprocessError) as exc:
+        if 'host_session' in locals() and host_session is not None:
+            host_session.release()
         shutil.rmtree(session_dir, ignore_errors=True)
         raise ProfileError(f"could not start experimental QEMU: {exc}", code="qemu_spawn_failed",
                            profile_hash=profile_hash, profile_path=profile_file) from exc

@@ -8,6 +8,7 @@ import signal
 import shutil
 import sys
 
+from .hostdir import HostDirError, recover_hostdir
 from .supervisor import ProfileError, run_session
 
 
@@ -26,9 +27,23 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--flash-state", type=pathlib.Path)
     run.add_argument("--report", type=pathlib.Path, required=True)
     run.add_argument("--uart-log", type=pathlib.Path)
+    fsck = subparsers.add_parser(
+        "fsck-hostdir",
+        help="complete or roll back an interrupted host-folder sync without starting a session")
+    fsck.add_argument("hostdir", type=pathlib.Path)
     args = parser.parse_args(argv)
+    if args.command == "fsck-hostdir":
+        try:
+            recovered = recover_hostdir(args.hostdir)
+        except HostDirError as exc:
+            print(json.dumps({"hostdir": str(args.hostdir), "recovered": False, "error_code": exc.code,
+                              "error": str(exc)}))
+            return 1
+        print(json.dumps({"hostdir": str(args.hostdir), "recovered": recovered}))
+        return 0
     if args.command != "run":
-        parser.error("a command is required (use: protopandaemu run --profile PROFILE --report REPORT)")
+        parser.error("a command is required (use: protopandaemu run --profile PROFILE --report REPORT, "
+                     "or protopandaemu fsck-hostdir HOSTDIR)")
     try:
         handle = run_session(args.profile, hostdir=args.hostdir, timeout=args.timeout,
                              flash_state_path=args.flash_state)

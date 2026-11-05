@@ -23,3 +23,16 @@
 - Harden M2 boundaries: schema-first typed rejection, pre-spawn flash hashing and
   firmware-alias protection, serialized graceful stop, signal cleanup, finite
   timeout validation, and persisted SD cache evidence across clean restarts.
+- Add Rock 2/M3's production host-folder bridge (`protopandaemu.hostdir`):
+  no-follow directory-handle staging with source-tree-change detection,
+  firmware JSON/PNG input validation scoped to the actual config files the
+  firmware's `configloader.lua`/`models.lua` require, a durable fsync-ordered
+  commit journal with idempotent crash recovery, mandatory backups, and
+  unique per-session conflict siblings that never overwrite a concurrent
+  host edit or an earlier conflict. Add `protopandaemu run --hostdir` wiring
+  and a `protopandaemu fsck-hostdir` CLI command for out-of-band recovery.
+- Add `scripts/prove-m3.py`, exercising two real firmware boots through a
+  real folder (including the guest's own Lua `io.open` read/write reaching
+  the host and surviving a restart), the full §5 error matrix, repeated
+  conflicting host/guest edits, and fault injection at every durable commit
+  boundary with recovery idempotency checks.

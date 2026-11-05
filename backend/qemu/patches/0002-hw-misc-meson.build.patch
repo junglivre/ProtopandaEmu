@@ -1,5 +1,5 @@
---- /tmp/qemu-pristine/qemu-esp_develop_9.2.2_20260417-src/hw/misc/meson.build	2026-04-17 13:57:35.000000000 -0300
-+++ /home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/hw/misc/meson.build	2026-11-04 13:18:27.062050895 -0300
+--- a/hw/misc/meson.build
++++ b/hw/misc/meson.build
 @@ -166,6 +166,7 @@
    'esp32c3_jtag.c',
    'esp32s3_rtc_cntl.c',

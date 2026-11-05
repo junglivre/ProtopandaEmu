@@ -26,7 +26,7 @@ O Protopanda Emulator está em desenvolvimento para testar animações, conferir
 | Build do firmware | Versão Proto-panda v3.4.0 fixada e verificação dos artefatos. |
 | Execução sem interface gráfica | Validação de perfil, UART ao vivo, relatórios de recursos e sessões com tempo limite. |
 | Persistência | Flash e SD privado preservados entre parada limpa e reinício. |
-| Armazenamento a partir de pasta | Protótipo de leitura verificado; gravação segura de volta à pasta em desenvolvimento. |
+| Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | HUB75 e OLED | Existem testes de periféricos; a renderização completa ainda não está disponível. |
 | Launcher desktop | Previsto após armazenamento e renderização. |
 
@@ -76,7 +76,29 @@ python3 -m protopandaemu run \
 
 A UART aparece no terminal. O relatório JSON registra os hashes do firmware e do perfil, marcadores de boot, métricas disponíveis da memória do guest e o motivo do encerramento. `Ctrl+C` encerra o backend; atingir o tempo limite retorna o código `124`. A rede do guest fica desabilitada.
 
-A API para uso em Python é `protopandaemu.supervisor.run_session(...)`. Chame `SessionHandle.stop()` para uma parada limpa. Flash e SD têm persistências separadas; persistir o SD privado não equivale a sincronizar uma pasta local.
+A API para uso em Python é `protopandaemu.supervisor.run_session(...)`. Chame `SessionHandle.stop()` para uma parada limpa. O estado de flash e o domínio SD a partir de pasta ficam separados, como descrito a seguir.
+
+### Aponte o firmware para uma pasta
+
+Adicione `--hostdir` para usar uma pasta real em vez do cartão SD de exemplo gerado automaticamente. A pasta já deve conter `hardware.json`, `animation.json` e os demais arquivos Lua/PNG que o firmware lê; veja o checkout fixado em `.work/upstream-v3.4.0` para o layout original.
+
+```bash
+python3 -m protopandaemu run \
+  --profile profile.json \
+  --hostdir /caminho/para/seus/dados-protopanda \
+  --report run.report.json \
+  --timeout 90
+```
+
+A pasta é preparada em uma imagem privada antes do boot e nunca é passada diretamente ao QEMU. Na parada limpa, as gravações do guest são sincronizadas de volta através de um diário durável: arquivos novos ou alterados são gravados, copiados como backup e renomeados como uma única unidade recuperável. Um arquivo que o firmware alterou enquanto você também o editava no computador nunca é sobrescrito silenciosamente — a versão do guest fica guardada em um arquivo irmão `<nome>.protopandaemu-conflict-...`, e o relatório da sessão lista todos os conflitos e backups. Se uma execução for interrompida no meio da sincronização, a próxima sessão (ou `python3 -m protopandaemu fsck-hostdir /caminho/para/seus/dados-protopanda`) conclui ou desfaz essa mesma sincronização antes de qualquer outra coisa tocar a pasta.
+
+Execute a verificação de ponta a ponta deste caminho com:
+
+```bash
+python3 scripts/prove-m3.py
+```
+
+Ela prepara uma pasta real, inicia o firmware, confirma que a própria leitura/gravação Lua do guest chegou ao computador, e testa toda a matriz de erros, conflitos e recuperação de falhas com falhas reais do sistema de arquivos.
 
 ## Compilação e inspeção
 
@@ -100,8 +122,7 @@ Um teste pode registrar um bloqueio ou `NOT_EXECUTED`; nenhum desses resultados 
 
 ## Próximas etapas
 
-1. Concluir o armazenamento a partir de pasta, com gravação segura, backups e recuperação de conflitos.
-2. Renderizar HUB75 e OLED a partir das transferências reais dos periféricos do firmware.
-3. Adicionar um launcher desktop com configuração por painel, prévias e diagnósticos ao vivo.
+1. Renderizar HUB75 e OLED a partir das transferências reais dos periféricos do firmware.
+2. Adicionar um launcher desktop com configuração por painel, prévias e diagnósticos ao vivo.
 
 Consulte o [`CHANGELOG.md`](CHANGELOG.md) para ver as alterações implementadas.
