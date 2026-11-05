@@ -45,7 +45,7 @@
 +        MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&ss->i2c0), 0);
 +        memory_region_add_subregion_overlap(sys_mem, DR_REG_I2C_EXT_BASE, mr, 0);
 +        sysbus_connect_irq(SYS_BUS_DEVICE(&ss->i2c0), 0,
-+                           qdev_get_gpio_in(intmatrix_dev, ETS_I2C_EXT1_INTR_SOURCE));
++                           qdev_get_gpio_in(intmatrix_dev, ETS_I2C_EXT0_INTR_SOURCE));
 +        i2c_slave_create_simple(I2C_BUS(qdev_get_child_bus(DEVICE(&ss->i2c0), "i2c")),
 +                                TYPE_ESP32S3_TOY_SSD1306, 0x3c);
 +    }
