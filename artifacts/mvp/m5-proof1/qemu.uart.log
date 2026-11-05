@@ -1,0 +1,16 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:QIO, clock div:1
+load:0x3fce2820,len:0x10f0
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xbec
+load:0x403cb700,len:0x2fcc
+entry 0x403c88ac
+Starting proto panda v3.4.0!
+[1076][I] Running I2C Scan...
+[1093][I] I2C device found at address 60
+
+QEMU 9.2.2 monitor - type 'help' for more information
+(qemu) q[K[Dqu[K[D[Dqui[K[D[D[Dquit[K

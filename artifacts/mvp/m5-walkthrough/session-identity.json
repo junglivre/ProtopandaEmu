@@ -1,0 +1,14 @@
+{
+  "hostdir": "/tmp/protopandaemu-m5-proof-b7gaee6z/host",
+  "profile_hash": "4175c0a186e1597e47a5d6dd935d5b59c0a0d30ccd366f1ab30eed64198f2c7c",
+  "session_id": "e73a6bb5-c1c5-4c93-9830-9f1d72368aaa",
+  "exit_reason": "stopped",
+  "wiring": {
+    "color_scheme_left": "bgr",
+    "color_scheme_right": "grb",
+    "flip_left": false,
+    "flip_right": true
+  },
+  "stderr_log": "manual-qemu.stderr.log",
+  "uart_log": "manual-qemu.uart.log"
+}

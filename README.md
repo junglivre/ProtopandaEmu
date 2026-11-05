@@ -19,7 +19,7 @@ Protopanda Emulator is being built for testing animations, checking panel wiring
 
 ## Current status
 
-**Early development. A headless runner works; the desktop emulator is not ready yet.**
+**M5 minimum desktop launcher is implemented; the remaining rendering boundary is the documented M4 HUB75 VFS gap.**
 
 | Component | Status |
 | --- | --- |
@@ -29,7 +29,7 @@ Protopanda Emulator is being built for testing animations, checking panel wiring
 | Folder-backed storage | A chosen folder becomes the firmware's SD card: safe staging, crash-recoverable commit, backups and conflict retention. |
 | OLED | Real SSD1306 I2C protocol, real 128x64 GDDRAM; byte-exact against an independently derived oracle. |
 | HUB75 | Decoder corrected and verified against real GDMA traffic (continuous streaming, real multi-plane descriptors); geometry self-consistent with the real panel chain. No colored/animated frame captured yet — blocked on an unrelated Lua VFS gap, see `ISSUES.md`. |
-| Desktop launcher | Planned after storage and rendering. |
+| Desktop launcher | Tkinter launcher with independent left/right wiring controls, real hostdir sessions, backend previews and live diagnostics. |
 
 The runner uses an experimental [Espressif QEMU](https://github.com/espressif/qemu) fork with patches in [`backend/qemu/`](backend/qemu/). Stock backend probes still have boot blockers. Results from the patched fork do not imply support in stock QEMU.
 
@@ -100,6 +100,36 @@ python3 scripts/prove-m3.py
 ```
 
 This stages a real folder, boots the firmware, confirms the guest's own Lua read/write reached the host, and exercises the full error, conflict and crash-recovery matrix with real filesystem faults.
+
+### Run the desktop launcher (M5)
+
+The local launcher uses the same in-process supervisor API as the headless
+runner. It writes the upstream per-frame `flip_left`, `flip_right`,
+`color_scheme_left` and `color_scheme_right` fields to the selected folder's
+`animation.json`, then starts and stops the real experimental QEMU session.
+
+```bash
+python3 -m protopandaemu.launcher --hostdir /path/to/your/protopanda-data --timeout 30
+```
+
+The preview reads the latest `GDDRAM_DUMP` and `FRAME_DUMP` lines from the
+session report's stderr log. M4 currently captures only the real all-black
+HUB75 `clearScreen()` state; the launcher labels that state and does not
+invent colored content. A local desktop is required. In a headless Linux
+environment with the repository's extracted Xvfb, start a real X display first
+and run the same command with `DISPLAY` set:
+
+```bash
+.work/mvp-display/root/usr/bin/Xvfb :99 -screen 0 1400x1000x24 -nolisten tcp &
+DISPLAY=:99 python3 -m protopandaemu.launcher --hostdir /path/to/your/protopanda-data
+```
+
+The automated M5 proof drives the actual Tk widget callbacks and a real
+supervisor session:
+
+```bash
+DISPLAY=:99 python3 scripts/prove-m5-launcher.py
+```
 
 ### Verify the OLED output
 

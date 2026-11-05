@@ -1,0 +1,19 @@
+{
+  "expressions": [
+    {
+      "animation": "loop",
+      "frames": "idle",
+      "name": "idle"
+    }
+  ],
+  "frames": [
+    {
+      "color_scheme_left": "bgr",
+      "color_scheme_right": "grb",
+      "file": "/frames/solid.png",
+      "flip_left": false,
+      "flip_right": true,
+      "name": "idle"
+    }
+  ]
+}

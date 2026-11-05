@@ -1,0 +1,92 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:QIO, clock div:1
+load:0x3fce2820,len:0x10f0
+load:0x403c8700,len:0x4
+load:0x403c8704,len:0xbec
+load:0x403cb700,len:0x2fcc
+entry 0x403c88ac
+Starting proto panda v3.4.0!
+[894][I] Running I2C Scan...
+[907][I] I2C device found at address 60
+
+[2650][I] [Memory] 86.8% free - 274848 of 316728 bytes free (psram: 8388608 / 8378220  -> 99.9%)
+[3677][I] [Memory] 86.7% free - 274584 of 316728 bytes free (psram: 8388608 / 8378172  -> 99.9%)
+Starting sd card mode as MMC
+[3728][I] [Memory] 86.3% free - 273432 of 316728 bytes free (psram: 8388608 / 8284544  -> 98.8%)
+[3800][I] Canvas size will be 64x32
+[3807][I] Loading display info
+[3872][I] DMA display initialized!
+[3880][I] [Memory] memmory_difference msg="Dma display" heap=-126336 psram=-4628
+[3887][I] [Memory] 46.4% free - 147096 of 316728 bytes free (psram: 8388608 / 8279780  -> 98.7%)
+[3897][I] Loading servos info
+[3910][I] [Memory] memmory_difference msg="Storage" heap=-272 psram=-228
+[3919][I] [Memory] 46.4% free - 146824 of 316728 bytes free (psram: 8388608 / 8279576  -> 98.7%)
+[3942][I] Reset reason: Vbat power on reset
+[3953][I] [Memory] memmory_difference msg="Devices" heap=-360 psram=-72
+[3963][I] [Memory] 46.2% free - 146464 of 316728 bytes free (psram: 8388608 / 8279468  -> 98.7%)
+[3973][I] Starting FFAT
+[4004][I] [Memory] memmory_difference msg="FFAT" heap=-948 psram=-18812
+[4016][I] [Memory] 45.9% free - 145516 of 316728 bytes free (psram: 8388608 / 8260624  -> 98.5%)
+[4026][I] FFAT totalBytes=10.24 Mb
+[4038][I] FFAT usedBytes=0.00 Mb
+[4051][I] FFAT Avaliable=99.96%
+[4065][I] [Memory] memmory_difference msg="Loaded bulk file" heap=-4440 psram=88
+[4075][I] [Memory] 44.4% free - 140632 of 316728 bytes free (psram: 8388608 / 8260728  -> 98.5%)
+[4614][I] Completed
+[4625][I] [Memory] memmory_difference msg="Frame repo" heap=36 psram=-172
+[4635][I] [Memory] 44.4% free - 140668 of 316728 bytes free (psram: 8388608 / 8260580  -> 98.5%)
+[4647][I] [Memory] memmory_difference msg="Frame buffer" heap=0 psram=-4172
+[4658][I] [Memory] 44.4% free - 140668 of 316728 bytes free (psram: 8388608 / 8256364  -> 98.4%)
+[4779][I] [Memory] memmory_difference msg="Lua" heap=-5212 psram=-102360
+[4790][I] [Memory] 42.8% free - 135456 of 316728 bytes free (psram: 8388608 / 8154012  -> 97.2%)
+Loading: versions
+Finished loading: versions
+Loading: json
+Finished loading: json
+Loading: configloader
+Finished loading: configloader
+Loading: drivers
+Finished loading: drivers
+Loading: input
+Finished loading: input
+Loading: ui
+Finished loading: ui
+Loading: generic
+Finished loading: generic
+Loading: models
+Finished loading: models
+Loading: fft
+Finished loading: fft
+Loading: leds
+Finished loading: leds
+Loading: scripts
+Finished loading: scripts
+Loading: boop
+Loading: expressions
+Finished loading: expressions
+Finished loading: boop
+Loading: menu
+Finished loading: menu
+Loading: overlays
+Finished loading: overlays
+Loading: servos
+Finished loading: servos
+[5214][I] [Memory] memmory_difference msg="init.lua" heap=-1512 psram=-376956
+[5224][I] [Memory] 42.3% free - 133944 of 316728 bytes free (psram: 8388608 / 7776972  -> 92.7%)
+[5252][I] Starting Lua
+[5258][I] Loading dictionary...
+[5266][I] Dictionary loaded successfully.
+Random seed is 17245.0
+[5276][I] Saving dictionary...
+[5283][I] Dictionary saved successfully.
+[5335][I] [LOG-LUA] [WARNING] rewriting config leds, done by /hardware.json
+[5338][I] [LOG-LUA] [WARNING] rewriting config servos, done by /hardware.json
+Gonna use 2 controllers
+[5631][I] Starting total of 128 leds
+[5637][I] Led started at addr 1009470828 to 64
+[5641][I] Second started at addr 1009470892 to 64
+QEMU 9.2.2 monitor - type 'help' for more information
+(qemu) q[K[Dqu[K[D[Dqui[K[D[D[Dquit[K

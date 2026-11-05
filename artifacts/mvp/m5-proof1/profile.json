@@ -1,0 +1,22 @@
+{
+  "board_profile": {
+    "chip": "esp32s3",
+    "cores": 2,
+    "cpu_mhz": 240,
+    "flash_bytes": 16777216,
+    "psram_bytes": 8388608,
+    "psram_mode": "octal"
+  },
+  "firmware_image": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin",
+  "firmware_sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
+  "headless": true,
+  "host_directory": "/tmp/protopandaemu-m5-proof-at_brpud/host",
+  "launcher_wiring": {
+    "color_scheme_left": "bgr",
+    "color_scheme_right": "grb",
+    "flip_left": false,
+    "flip_right": true
+  },
+  "log_level": "info",
+  "renderer": "none"
+}

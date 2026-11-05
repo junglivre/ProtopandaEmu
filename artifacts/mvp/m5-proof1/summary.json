@@ -1,0 +1,35 @@
+{
+  "exit_reason": "stopped",
+  "hostdir": "/tmp/protopandaemu-m5-proof-at_brpud/host",
+  "preview_hub75": "HUB75: aguardando dump FRAME real",
+  "preview_oled": "OLED: dump real seq=2 128x64, 1024 bytes",
+  "profile_hash": "a29269600a77f0f2e3b653f0bb6008ccc868c3a910ad30498affd54bb1955b5f",
+  "profile_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/mvp-profiles/c80fb08e378eeb47.json",
+  "proof": "M5 proof 1",
+  "report_fields_verified": [
+    "exit_reason",
+    "finished_at_utc",
+    "firmware_sha256",
+    "flash_final_sha256",
+    "flash_initial_sha256",
+    "flash_state_path",
+    "markers",
+    "profile_hash",
+    "qemu_started",
+    "resources",
+    "schema",
+    "session_id",
+    "started_at_utc",
+    "stderr_log_path",
+    "uart_log_path",
+    "wall_clock_ms"
+  ],
+  "run_dir": "/tmp/protopandaemu-m5-proof-at_brpud",
+  "session_id": "4afd1c57-046a-4d42-83f4-730447e5b1ed",
+  "wiring": {
+    "color_scheme_left": "bgr",
+    "color_scheme_right": "grb",
+    "flip_left": false,
+    "flip_right": true
+  }
+}
