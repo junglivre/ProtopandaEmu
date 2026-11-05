@@ -12,3 +12,14 @@
 - Prove the QEMU path reaches storage: a virtual SD card (`scripts/make-sd-image.sh`, `-drive if=sd`) mounts under the unmodified firmware — first backend to pass SDMMC.
 - Fix FFat mount (`FR 13`) in the experimental QEMU tree: root cause was SPI1 dummy-phase scaling for quad-I/O reads in `esp32s3_spi.c` (`(cycles+7)/8` bytes instead of line-width-aware conversion), which shifted every `esp_flash_read` payload +2 bytes after QIO mode init — truncating the FAT `55 AA` signature. Fixed by `backend/qemu/patches/0003-esp32s3-spi-dummy-io-scaling.patch`; evidence chain in `docs/qemu-spi-dummy-fix.md`. The Cycle 1 attribution of this blocker to the memory-mapped flash cache window was wrong and is retracted. Post-fix, unmodified firmware mounts FFat, rebuilds `frames.bulk` from SD PNG assets, writes `cache.json` and reaches edit mode (WiFi off, `-nic none`).
 - No production emulator, GUI, guest host-directory bridge or faithful HUB75/SSD1306 implementation is released.
+- Add Rock 1/M2's importable `protopandaemu.supervisor`, thin headless CLI,
+  committed machine-profile schema, real UART/resource reports, clean-stop
+  flash persistence, structured pre-spawn profile rejection, and bounded
+  timeout cleanup around the additive experimental QEMU fork.
+- Add `scripts/prove-m2.py`, which retains fresh acceptance evidence for FFat
+  rebuild/store, clean-stop/restart cache reuse, incompatible-profile rejection,
+  timeout cleanup, and interrupt cleanup using the unmodified pinned Proto-panda
+  v3.4.0 image.
+- Harden M2 boundaries: schema-first typed rejection, pre-spawn flash hashing and
+  firmware-alias protection, serialized graceful stop, signal cleanup, finite
+  timeout validation, and persisted SD cache evidence across clean restarts.

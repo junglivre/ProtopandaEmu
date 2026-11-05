@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://protopandaemu.local/schemas/machine-profile.schema.json",
+  "title": "ProtopandaEmu machine profile",
+  "type": "object",
+  "required": ["firmware_image", "firmware_sha256", "board_profile", "log_level"],
+  "properties": {
+    "firmware_image": {"type": "string", "minLength": 1},
+    "firmware_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+    "board_profile": {
+      "type": "object",
+      "required": ["chip", "cores", "cpu_mhz", "flash_bytes", "psram_bytes", "psram_mode"],
+      "properties": {
+        "chip": {"type": "string", "const": "esp32s3"},
+        "cores": {"type": "integer", "const": 2},
+        "cpu_mhz": {"type": "integer", "const": 240},
+        "flash_bytes": {"type": "integer", "const": 16777216},
+        "psram_bytes": {"type": "integer", "const": 8388608},
+        "psram_mode": {"type": "string", "const": "octal"}
+      },
+      "additionalProperties": false
+    },
+    "log_level": {"type": "string", "enum": ["debug", "info", "warning", "error"]},
+    "host_directory": {"type": ["string", "null"]},
+    "headless": {"type": "boolean", "const": true},
+    "renderer": {"type": "string", "const": "none"}
+  },
+  "additionalProperties": true
+}
