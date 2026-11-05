@@ -1,10 +1,10 @@
 {
   "exit_reason": "stopped",
-  "hostdir": "/tmp/protopandaemu-m5-proof-zlavqc36/host",
+  "hostdir": "/tmp/protopandaemu-m5-proof-5xdc_am_/host",
   "preview_hub75": "HUB75: aguardando dump FRAME real",
   "preview_oled": "OLED: dump real seq=2 128x64, 1024 bytes",
-  "profile_hash": "31f88b8faa3d29857978372b347abac71b026ff93772e64757e2946e843435b4",
-  "profile_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/mvp-profiles/d01e04701630e5da.json",
+  "profile_hash": "d0e0021bb280cdb0421c7749604e18fe2972004e90c898c92329297969f1a121",
+  "profile_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/mvp-profiles/8b1825f04198b905.json",
   "proof": "M5 proof 1",
   "report_fields_verified": [
     "exit_reason",
@@ -24,8 +24,8 @@
     "uart_log_path",
     "wall_clock_ms"
   ],
-  "run_dir": "/tmp/protopandaemu-m5-proof-zlavqc36",
-  "session_id": "cd0cf587-41ec-4b4c-81c4-505b1491c849",
+  "run_dir": "/tmp/protopandaemu-m5-proof-5xdc_am_",
+  "session_id": "7f4de5fe-e296-4223-996a-22e9baf1a4bf",
   "wiring": {
     "color_scheme_left": "bgr",
     "color_scheme_right": "grb",

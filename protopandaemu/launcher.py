@@ -161,6 +161,8 @@ class LauncherApp:
         self.right_flip_var = tk.BooleanVar(value=False)
         self.left_color_var = tk.StringVar(value="rgb")
         self.right_color_var = tk.StringVar(value="rgb")
+        self.oled_rotate_var = tk.BooleanVar(value=False)
+        self._last_oled_dump: dict[str, Any] | None = None
 
         self._build_widgets()
         if initial_hostdir:
@@ -244,6 +246,10 @@ class LauncherApp:
         oled_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
         hub_frame = ttk.LabelFrame(displays, text="HUB75 — RGB888", padding=8)
         hub_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        self.oled_rotate_check = ttk.Checkbutton(
+            oled_frame, text="Girar 180° na visualização (cosmético; dados reportados não mudam)",
+            variable=self.oled_rotate_var, command=self._redraw_oled_from_cache)
+        self.oled_rotate_check.pack(anchor="w")
         self.oled_canvas = tk.Canvas(oled_frame, width=384, height=192, bg="#202020",
                                      highlightthickness=1, highlightbackground="#808080")
         self.oled_canvas.pack(fill="both", expand=True)
@@ -431,7 +437,7 @@ class LauncherApp:
             return None
 
     def _schedule_refresh(self) -> None:
-        self._after_id = self.root.after(500, self.refresh)
+        self._after_id = self.root.after(100, self.refresh)
 
     def refresh(self) -> None:
         if self.handle is not None:
@@ -443,6 +449,7 @@ class LauncherApp:
             if stderr:
                 oled, hub = _read_latest_dumps(pathlib.Path(stderr))
                 if oled:
+                    self._last_oled_dump = oled
                     self._draw_oled(oled)
                     self.oled_var.set(f"OLED: dump real seq={oled['seq']} {oled['width']}x{oled['height']}, {oled['bytes']} bytes")
                 if hub:
@@ -471,6 +478,10 @@ class LauncherApp:
         self.uart_text.see("end")
         self.uart_text.configure(state="disabled")
 
+    def _redraw_oled_from_cache(self) -> None:
+        if self._last_oled_dump is not None:
+            self._draw_oled(self._last_oled_dump)
+
     def _draw_oled(self, dump: dict[str, Any]) -> None:
         canvas = self.oled_canvas
         width, height, data = dump["width"], dump["height"], dump["data"]
@@ -482,6 +493,12 @@ class LauncherApp:
             row_bytes = data[(y // 8) * width:(y // 8) * width + width]
             bit = 1 << (y & 7)
             rows.append(" ".join(on if byte & bit else off for byte in row_bytes))
+        if self.oled_rotate_var.get():
+            # Cosmetic only: the firmware's OLED_SCREEN_ROTATION=2 is baked
+            # into the real GDDRAM bytes this reads (see ISSUES.md); this
+            # flips the VIEW to match a physically-compensated enclosure,
+            # it never changes the reported seq/width/height/bytes data.
+            rows = [" ".join(reversed(row.split(" "))) for row in reversed(rows)]
         photo = tk.PhotoImage(width=width, height=height)
         photo.put(" ".join(f"{{{row}}}" for row in rows))
         scale = max(1, min(canvas.winfo_width() // width, canvas.winfo_height() // height))

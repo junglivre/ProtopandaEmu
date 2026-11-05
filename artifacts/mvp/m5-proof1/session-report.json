@@ -1,11 +1,11 @@
 {
   "error_code": null,
   "exit_reason": "stopped",
-  "finished_at_utc": "2026-11-05T17:47:25.377+00:00",
+  "finished_at_utc": "2026-11-05T22:28:59.575+00:00",
   "firmware_sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
   "flash_final_sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
   "flash_initial_sha256": "811774774e8a9dbfd9d7a8278efc03b8bb6cd1a028c18ba68e7c7cee26f04bf3",
-  "flash_state_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-flash/31f88b8faa3d29857978372b347abac71b026ff93772e64757e2946e843435b4.flash.bin",
+  "flash_state_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-flash/d0e0021bb280cdb0421c7749604e18fe2972004e90c898c92329297969f1a121.flash.bin",
   "hostdir": {
     "backups": [],
     "conflicts": [],
@@ -74,7 +74,7 @@
       "models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
       "wifi.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
     },
-    "root": "/tmp/protopandaemu-m5-proof-zlavqc36/host",
+    "root": "/tmp/protopandaemu-m5-proof-5xdc_am_/host",
     "start_manifest": {
       "animation.json": "94a76cfb6a338bd454c50c13133090852f94ea75fe10882756f3f7df794d05a1",
       "frames/solid.png": "ccc6da844fb6c24a1b1b43f898591ba39875dce1c17c8dd9207bae3e07ff6ef0",
@@ -125,7 +125,7 @@
     "watchdog_reset": false
   },
   "process_exited": true,
-  "profile_hash": "31f88b8faa3d29857978372b347abac71b026ff93772e64757e2946e843435b4",
+  "profile_hash": "d0e0021bb280cdb0421c7749604e18fe2972004e90c898c92329297969f1a121",
   "qemu_argv": [
     "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa",
     "-nographic",
@@ -136,9 +136,9 @@
     "-global",
     "driver=ssi_psram,property=is_octal,value=true",
     "-drive",
-    "file=/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-flash/31f88b8faa3d29857978372b347abac71b026ff93772e64757e2946e843435b4.flash.bin,if=mtd,format=raw",
+    "file=/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-flash/d0e0021bb280cdb0421c7749604e18fe2972004e90c898c92329297969f1a121.flash.bin,if=mtd,format=raw",
     "-drive",
-    "if=sd,index=0,file=/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/cd0cf587-41ec-4b4c-81c4-505b1491c849/sd-card.img,format=raw",
+    "if=sd,index=0,file=/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/7f4de5fe-e296-4223-996a-22e9baf1a4bf/sd-card.img,format=raw",
     "-nic",
     "none",
     "-d",
@@ -146,7 +146,7 @@
     "-serial",
     "mon:stdio"
   ],
-  "qemu_pid": 1384779,
+  "qemu_pid": 2942273,
   "qemu_started": true,
   "resources": {
     "heap_free_pct": "unavailable: no firmware memory line yet",
@@ -154,11 +154,11 @@
     "psram_total_bytes": "unavailable: no firmware memory line yet"
   },
   "schema": "protopandaemu/session-report/v1",
-  "sd_image_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/cd0cf587-41ec-4b4c-81c4-505b1491c849/sd-card.img",
+  "sd_image_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/7f4de5fe-e296-4223-996a-22e9baf1a4bf/sd-card.img",
   "sd_state_path": null,
-  "session_id": "cd0cf587-41ec-4b4c-81c4-505b1491c849",
-  "started_at_utc": "2026-11-05T17:47:23.955+00:00",
-  "stderr_log_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/cd0cf587-41ec-4b4c-81c4-505b1491c849/qemu.stderr.log",
-  "uart_log_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/cd0cf587-41ec-4b4c-81c4-505b1491c849/qemu.uart.log",
-  "wall_clock_ms": 1422.641
+  "session_id": "7f4de5fe-e296-4223-996a-22e9baf1a4bf",
+  "started_at_utc": "2026-11-05T22:28:58.249+00:00",
+  "stderr_log_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/7f4de5fe-e296-4223-996a-22e9baf1a4bf/qemu.stderr.log",
+  "uart_log_path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/protopandaemu-sessions/7f4de5fe-e296-4223-996a-22e9baf1a4bf/qemu.uart.log",
+  "wall_clock_ms": 1325.16
 }
