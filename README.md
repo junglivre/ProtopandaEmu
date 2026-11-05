@@ -115,7 +115,12 @@ python3 -m protopandaemu.launcher --hostdir /path/to/your/protopanda-data --time
 The preview reads the latest `GDDRAM_DUMP` and `FRAME_DUMP` lines from the
 session report's stderr log. M4 currently captures only the real all-black
 HUB75 `clearScreen()` state; the launcher labels that state and does not
-invent colored content. A local desktop is required. In a headless Linux
+invent colored content. **This backend has no BLE controller model**: a real
+SD card's `keybinds.json` with `input.mode: "BLE"` boots straight into a
+crash/reboot loop (confirmed; see `ISSUES.md`) — the launcher warns before
+starting if it detects this, and the workaround is switching that file's
+`input.mode` to `"none"` or `"infrared"` for emulator testing. A local
+desktop is required. In a headless Linux
 environment with the repository's extracted Xvfb, start a real X display first
 and run the same command with `DISPLAY` set:
 
@@ -161,7 +166,9 @@ A probe can report a blocker or `NOT_EXECUTED`; neither means the firmware passe
 
 ## Next milestones
 
-1. Stream and decode real HUB75 frames (continuous GDMA descriptor consumption, bitplanes, wiring permutations).
-2. Add a desktop launcher with per-panel wiring controls, previews and live diagnostics.
+1. Fix the `models.json` VFS race blocking a real colored/animated HUB75
+   frame (`ISSUES.md`).
+2. BLE/Wi-Fi edit-mode, web, and release hardening milestones (out of this
+   cycle, see `docs/protopandaemu-full-spec.md`).
 
 See [`CHANGELOG.md`](CHANGELOG.md) for implemented changes.

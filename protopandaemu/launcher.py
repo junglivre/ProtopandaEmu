@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import pathlib
 import re
 import tkinter as tk
@@ -45,9 +46,9 @@ class LauncherError(RuntimeError):
     """A user-facing launcher validation or lifecycle error."""
 
 
-def _write_json(path: pathlib.Path, value: Any) -> None:
+def _write_json(path: pathlib.Path, value: Any, *, sort_keys: bool = True) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(value, indent=2, sort_keys=sort_keys) + "\n", encoding="utf-8")
 
 
 def selected_wiring(*, flip_left: bool, flip_right: bool,
@@ -94,15 +95,27 @@ def apply_wiring_to_animation(path: str | pathlib.Path, wiring: dict[str, Any]) 
         element.update(modes)
         updated.append(element)
     document["frames"] = updated
-    _write_json(animation_path, document)
+    _write_json(animation_path, document, sort_keys=False)
     return len(updated)
+
+
+# A HUB75 FRAME_DUMP line can carry up to width*height*3*2 hex characters
+# (~49KB for the current 128x64 fixture); reading only the tail keeps each
+# refresh tick O(1) instead of O(log size) as a running session's stderr
+# log grows into the megabytes, which otherwise stutters the live preview.
+_DUMP_TAIL_BYTES = 262144
 
 
 def _read_latest_dumps(stderr_path: pathlib.Path) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     try:
-        text = stderr_path.read_text(encoding="utf-8", errors="replace")
+        with stderr_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - _DUMP_TAIL_BYTES))
+            tail = handle.read()
     except OSError:
         return None, None
+    text = tail.decode("utf-8", errors="replace")
     oled_matches = list(OLED_RE.finditer(text))
     hub_matches = list(HUB75_RE.finditer(text))
 
@@ -324,10 +337,35 @@ class LauncherApp:
             messagebox.showerror("Não foi possível criar o perfil", str(exc), parent=self.root)
             return None
 
+    def _warn_if_unsupported_input_mode(self) -> None:
+        """keybinds.json's 'BLE' input mode reaches startBLE()/startBLERadio(),
+        which this experimental QEMU fork has no BLE controller model for; the
+        real pinned firmware hits a Guru Meditation assert and reboots forever
+        (confirmed: reproducible on every boot). Warn instead of silently
+        bootlooping the user's real SD card config."""
+        if self.hostdir is None:
+            return
+        try:
+            keybinds = json.loads((self.hostdir / "keybinds.json").read_text(encoding="utf-8"))
+            mode = str(keybinds.get("input", {}).get("mode", "")).upper()
+        except (OSError, json.JSONDecodeError, AttributeError):
+            return
+        if mode == "BLE":
+            messagebox.showwarning(
+                "keybinds.json usa input mode BLE",
+                "Este cartão usa input.mode=\"BLE\". O backend QEMU experimental não "
+                "emula um controlador BLE: o firmware real trava com um assert ao "
+                "chamar startBLE() e reinicia em loop infinito (reproduzido e "
+                "confirmado). Para testar neste emulador, mude input.mode para "
+                "\"none\" ou \"infrared\" no keybinds.json. A sessão vai iniciar "
+                "mesmo assim, mas provavelmente vai bootloopar.",
+                parent=self.root)
+
     def start_session(self) -> None:
         if self.handle is not None and not self.handle.wait(timeout=0):
             self.status_var.set("A sessão já está em execução.")
             return
+        self._warn_if_unsupported_input_mode()
         profile = self.create_profile()
         if profile is None or self.hostdir is None:
             return

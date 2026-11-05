@@ -9,8 +9,8 @@ load:0x403c8704,len:0xbec
 load:0x403cb700,len:0x2fcc
 entry 0x403c88ac
 Starting proto panda v3.4.0!
-[1076][I] Running I2C Scan...
-[1093][I] I2C device found at address 60
+[946][I] Running I2C Scan...
+[960][I] I2C device found at address 60
 
 QEMU 9.2.2 monitor - type 'help' for more information
 (qemu) q[K[Dqu[K[D[Dqui[K[D[D[Dquit[K

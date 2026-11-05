@@ -61,3 +61,24 @@
   (`docs/qemu-hub75-oled-spike.md`); capturing a colored/animated
   frame is still blocked by an unrelated Lua VFS gap
   (`models.json`/`io.open`, tracked in `ISSUES.md`).
+- Capture the continuous-streaming GDMA descriptor-walk helper
+  (`esp_gdma_walk_channel_until_eof`) as a durable patch
+  (`backend/qemu/patches/0007-gdma-walk-channel-until-eof.patch`); it had
+  only existed as a hand-edit in the unpacked working tree and a clean
+  rebuild silently lost it.
+- Add the M5 minimum desktop launcher (`protopandaemu/launcher.py`):
+  independent left/right HUB75 wiring controls writing the real upstream
+  `flip_left`/`flip_right`/`color_scheme_left`/`color_scheme_right` fields,
+  a folder picker wired to the hostdir bridge, start/stop via the shared
+  supervisor API, and a live preview/UART/resource view.
+- Fix two real bugs found testing the launcher against a real user SD-card
+  config: the live OLED/HUB75 preview re-read and re-regexed the entire
+  growing session stderr log on every refresh tick (visible stutter on a
+  long-running session); and writing wiring fields reformatted the user's
+  whole `animation.json` (`sort_keys=True` reordering every object,
+  turning a 4-field addition into a 1,316-line diff on a real hand-authored
+  file). Both fixed and regression-tested (`tests/test_launcher.py`).
+- Document that BLE input mode is not supported by this experimental QEMU
+  backend (no BLE controller model; a real firmware config with
+  `input.mode: "BLE"` boots into an infinite crash/reboot loop) and warn
+  for it in the launcher before starting a session.

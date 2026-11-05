@@ -6,20 +6,20 @@
 
 [🇺🇸 English](README.md) | **🇧🇷 Português**
 
-Execute o firmware do [Proto-panda](https://github.com/mockthebear/Proto-panda) no computador, sem a placa física.
+Execute o firmware do [Proto-panda](https://github.com/mockthebear/Proto-panda) no seu computador, sem a placa física.
 
-O Protopanda Emulator está em desenvolvimento para testar animações, conferir a ligação dos painéis e inspecionar o comportamento do firmware antes de levá-lo ao ESP32-S3. A proposta é executar o firmware original, incluindo seus scripts Lua e armazenamento, em vez de recriar a aplicação no computador.
+O Protopanda Emulator está sendo construído para testar animações, conferir a fiação dos painéis e inspecionar o comportamento do firmware antes de enviar para um ESP32-S3. O objetivo é rodar o firmware original, incluindo seus scripts Lua e armazenamento, em vez de recriar a aplicação no host.
 
 ## Hardware de referência
 
 - **ESP32-S3 N16R8:** dois núcleos LX7, 16 MiB de flash e 8 MiB de PSRAM octal.
-- **Dois painéis HUB75 de 64×32:** ordem de canais e orientação independentes por painel.
-- **OLED SSD1306:** tela de 128×64 via I²C.
+- **Dois painéis HUB75 64×32:** ordem de canal e orientação independentes por painel.
+- **OLED SSD1306:** display 128×64 via I²C.
 - **Cartão SD virtual:** uma pasta local para configurações, scripts Lua e imagens PNG.
 
 ## Estado atual
 
-**Desenvolvimento inicial. A execução sem interface gráfica funciona; o emulador desktop ainda não está pronto.**
+**O launcher desktop mínimo do M5 está implementado; a fronteira de renderização restante é o gap de VFS do HUB75 documentado no M4.**
 
 | Componente | Estado |
 | --- | --- |
@@ -29,7 +29,7 @@ O Protopanda Emulator está em desenvolvimento para testar animações, conferir
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
 | HUB75 | Decodificador corrigido e verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); geometria consistente com o encadeamento real de painéis. Nenhum quadro colorido/animado capturado ainda — bloqueado por um gap de VFS do Lua não relacionado, ver `ISSUES.md`. |
-| Launcher desktop | Previsto após armazenamento e renderização. |
+| Launcher desktop | Launcher Tkinter com controles independentes de fiação esquerda/direita, sessões reais via hostdir, prévias do backend e diagnósticos ao vivo. |
 
 A execução usa um fork experimental do [QEMU da Espressif](https://github.com/espressif/qemu), com patches em [`backend/qemu/`](backend/qemu/). Os testes dos backends originais ainda encontram bloqueios de boot. Resultados do fork modificado não significam suporte no QEMU original.
 
@@ -37,19 +37,19 @@ A execução usa um fork experimental do [QEMU da Espressif](https://github.com/
 
 O desenvolvimento atual usa Linux. São necessários Python 3, `mtools`, o build fixado do firmware e o executável do QEMU experimental. O runner Python usa apenas a biblioteca padrão.
 
-Em um ambiente já preparado, execute a verificação de ponta a ponta:
+Com o ambiente preparado, rode a verificação de ponta a ponta:
 
 ```bash
 python3 scripts/prove-m2.py
 ```
 
-Ela inicia o firmware real duas vezes, verifica a persistência, rejeita um perfil incompatível e testa o encerramento por tempo limite e interrupção. Cada execução informa o caminho dos logs e relatórios JSON.
+Isso inicia o firmware real duas vezes, confere o estado persistido, rejeita um perfil incompatível e exercita a limpeza por timeout e por interrupção. Cada execução imprime o caminho dos seus logs e relatórios JSON.
 
-O teste usa um conjunto de arquivos SD com o display desabilitado para separar boot e armazenamento da renderização ainda incompleta. Os marcadores de progresso vêm do Lua executado dentro do guest.
+A verificação usa uma fixture de SD com o display desabilitado para isolar o boot e o armazenamento de uma renderização ainda incompleta. Seus marcadores de progresso vêm do Lua rodando dentro do guest.
 
-### Inicie uma sessão
+### Rode uma sessão
 
-Salve este conteúdo como `profile.json` na raiz do repositório. Caminhos relativos do firmware são resolvidos a partir da pasta do perfil.
+Salve isto como `profile.json` na raiz do repositório. Caminhos de firmware relativos resolvem a partir da pasta do perfil.
 
 ```json
 {
@@ -75,13 +75,13 @@ python3 -m protopandaemu run \
   --timeout 90
 ```
 
-A UART aparece no terminal. O relatório JSON registra os hashes do firmware e do perfil, marcadores de boot, métricas disponíveis da memória do guest e o motivo do encerramento. `Ctrl+C` encerra o backend; atingir o tempo limite retorna o código `124`. A rede do guest fica desabilitada.
+O UART aparece no terminal. O relatório JSON registra os hashes do firmware e do perfil, marcadores de boot, métricas de memória disponível no guest e o motivo de encerramento. `Ctrl+C` encerra o backend; atingir o tempo limite retorna o código `124`. A rede do guest fica desabilitada.
 
-A API para uso em Python é `protopandaemu.supervisor.run_session(...)`. Chame `SessionHandle.stop()` para uma parada limpa. O estado de flash e o domínio SD a partir de pasta ficam separados, como descrito a seguir.
+A API para uso em Python é `protopandaemu.supervisor.run_session(...)`. Chame `SessionHandle.stop()` para uma parada limpa. Flash e o domínio SD a partir de pasta são mantidos separados, como descrito a seguir.
 
 ### Aponte o firmware para uma pasta
 
-Adicione `--hostdir` para usar uma pasta real em vez do cartão SD de exemplo gerado automaticamente. A pasta já deve conter `hardware.json`, `animation.json` e os demais arquivos Lua/PNG que o firmware lê; veja o checkout fixado em `.work/upstream-v3.4.0` para o layout original.
+Adicione `--hostdir` para usar uma pasta real em vez do cartão SD de exemplo gerado. A pasta já precisa conter `hardware.json`, `animation.json` e os ativos Lua/PNG que o firmware lê; consulte o checkout fixado em `.work/upstream-v3.4.0` para o layout original.
 
 ```bash
 python3 -m protopandaemu run \
@@ -91,15 +91,36 @@ python3 -m protopandaemu run \
   --timeout 90
 ```
 
-A pasta é preparada em uma imagem privada antes do boot e nunca é passada diretamente ao QEMU. Na parada limpa, as gravações do guest são sincronizadas de volta através de um diário durável: arquivos novos ou alterados são gravados, copiados como backup e renomeados como uma única unidade recuperável. Um arquivo que o firmware alterou enquanto você também o editava no computador nunca é sobrescrito silenciosamente — a versão do guest fica guardada em um arquivo irmão `<nome>.protopandaemu-conflict-...`, e o relatório da sessão lista todos os conflitos e backups. Se uma execução for interrompida no meio da sincronização, a próxima sessão (ou `python3 -m protopandaemu fsck-hostdir /caminho/para/seus/dados-protopanda`) conclui ou desfaz essa mesma sincronização antes de qualquer outra coisa tocar a pasta.
+A pasta é preparada em uma imagem privada antes do boot e nunca é passada diretamente ao QEMU. Na parada limpa, as gravações do guest são confirmadas de volta através de um journal durável: arquivos novos e alterados são escritos, copiados em backup e renomeados como uma única unidade recuperável. Um arquivo que o firmware alterou enquanto você também o editava no host nunca é sobrescrito silenciosamente — a versão do guest é mantida em um `<nome>.protopandaemu-conflict-...` separado, e o relatório da sessão lista cada conflito e backup. Se uma execução for interrompida no meio de uma confirmação, a próxima sessão (ou `python3 -m protopandaemu fsck-hostdir /caminho/para/seus/dados-protopanda`) termina ou reverte essa mesma confirmação antes que qualquer outra coisa toque a pasta.
 
-Execute a verificação de ponta a ponta deste caminho com:
+Rode a verificação de ponta a ponta para esse caminho com:
 
 ```bash
 python3 scripts/prove-m3.py
 ```
 
-Ela prepara uma pasta real, inicia o firmware, confirma que a própria leitura/gravação Lua do guest chegou ao computador, e testa toda a matriz de erros, conflitos e recuperação de falhas com falhas reais do sistema de arquivos.
+Isso prepara uma pasta real, inicia o firmware, confirma que a própria leitura/gravação Lua do guest chegou ao host, e exercita toda a matriz de erros, conflitos e recuperação de falhas com falhas reais do sistema de arquivos.
+
+### Rode o launcher desktop (M5)
+
+O launcher local usa a mesma API do supervisor em processo que o runner sem interface gráfica. Ele grava os campos reais por quadro `flip_left`, `flip_right`, `color_scheme_left` e `color_scheme_right` no `animation.json` da pasta escolhida, e então inicia e para a sessão real do QEMU experimental.
+
+```bash
+python3 -m protopandaemu.launcher --hostdir /caminho/para/seus/dados-protopanda --timeout 30
+```
+
+A prévia lê as últimas linhas `GDDRAM_DUMP` e `FRAME_DUMP` do log de stderr do relatório da sessão. O M4 atualmente só captura o estado real `clearScreen()` do HUB75 (todo preto); o launcher rotula esse estado e não inventa conteúdo colorido. **Este backend não tem modelo de controlador BLE**: um cartão SD real com `keybinds.json` em `input.mode: "BLE"` entra direto em loop de crash/reinício (confirmado; ver `ISSUES.md`) — o launcher avisa antes de iniciar se detectar isso, e a solução é trocar o `input.mode` desse arquivo para `"none"` ou `"infrared"` para testar no emulador. Um ambiente desktop local é necessário. Em um ambiente Linux sem interface gráfica, com o Xvfb já extraído no repositório, suba um display X real primeiro e rode o mesmo comando com `DISPLAY` definido:
+
+```bash
+.work/mvp-display/root/usr/bin/Xvfb :99 -screen 0 1400x1000x24 -nolisten tcp &
+DISPLAY=:99 python3 -m protopandaemu.launcher --hostdir /caminho/para/seus/dados-protopanda
+```
+
+A prova automatizada do M5 aciona os callbacks reais dos widgets Tk e uma sessão real do supervisor:
+
+```bash
+DISPLAY=:99 python3 scripts/prove-m5-launcher.py
+```
 
 ### Verifique a saída do OLED
 
@@ -107,7 +128,7 @@ Ela prepara uma pasta real, inicia o firmware, confirma que a própria leitura/g
 python3 scripts/prove-m4-oled.py
 ```
 
-Isso inicia o firmware com sua configuração real de display, captura o tráfego real de comandos e pixels I2C do SSD1306, e confere o quadro do ícone de abertura byte a byte contra um oráculo que este script deriva de forma independente a partir do próprio bitmap do ícone compilado no firmware. A transmissão do HUB75 ainda não está implementada, então essa verificação encerra a sessão logo após o trabalho do OLED terminar, sem esperar o resto do boot.
+Isso inicia o firmware com sua configuração real de display, captura o tráfego real de comandos e pixels I2C do SSD1306, e confere o quadro do ícone de abertura byte a byte contra um oráculo que este script deriva de forma independente a partir do próprio bitmap do ícone compilado no firmware. A transmissão do HUB75 ainda não está implementada neste check, então ele encerra a sessão logo após o trabalho do OLED terminar, sem esperar o resto do boot.
 
 ## Compilação e inspeção
 
@@ -131,7 +152,7 @@ Um teste pode registrar um bloqueio ou `NOT_EXECUTED`; nenhum desses resultados 
 
 ## Próximas etapas
 
-1. Transmitir e decodificar quadros HUB75 reais (consumo contínuo de descritores GDMA, bitplanes, permutações de fiação).
-2. Adicionar um launcher desktop com configuração por painel, prévias e diagnósticos ao vivo.
+1. Corrigir a race de VFS do `models.json` que bloqueia um quadro HUB75 colorido/animado real (`ISSUES.md`).
+2. Marcos de modo de edição BLE/Wi-Fi, web e endurecimento de release (fora deste ciclo, ver `docs/protopandaemu-full-spec.md`).
 
 Consulte o [`CHANGELOG.md`](CHANGELOG.md) para ver as alterações implementadas.
