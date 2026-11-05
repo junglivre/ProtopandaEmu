@@ -133,6 +133,15 @@ else
   echo "Rock 4 real GDMA/I2C patch already applied (idempotent): $APPLY_MARKER5"
 fi
 
+APPLY_MARKER6="$SOURCE_DIR/.protopandaemu-gdma-walk-channel-applied"
+if [[ ! -f "$APPLY_MARKER6" ]]; then
+  echo "+ applying continuous-streaming GDMA descriptor-walk helper (M4 HUB75)"
+  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0007-gdma-walk-channel-until-eof.patch"
+  touch "$APPLY_MARKER6"
+else
+  echo "GDMA walk-channel helper already applied (idempotent): $APPLY_MARKER6"
+fi
+
 cd "$SOURCE_DIR"
 if [[ ! -f build/build.ninja ]]; then
   echo "+ configure"

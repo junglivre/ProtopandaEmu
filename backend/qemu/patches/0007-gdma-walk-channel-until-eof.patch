@@ -1,0 +1,113 @@
+--- a/hw/dma/esp_gdma.c
++++ b/hw/dma/esp_gdma.c
+@@ -528,6 +528,73 @@
+     return !error;
+ }
+ 
++/**
++ * @brief Walk one real lap of a continuous-streaming OUT channel's
++ * descriptor ring, invoking `cb` once per descriptor visited by that
++ * descriptor's real address and payload. See the header for the
++ * resume-vs-start-from-head semantics.
++ */
++bool esp_gdma_walk_channel_until_eof(ESPGdmaState *s, uint32_t chan, uint32_t max_descriptors,
++                                      esp_gdma_descriptor_cb cb, void *opaque)
++{
++    DmaConfigState* state = &s->ch_conf[ESP_GDMA_OUT_IDX][chan];
++    const bool owner_check_out = FIELD_EX32(state->conf1, GDMA_OUT_CONF1, CHECK_OWNER);
++
++    /* Resume where the previous lap left off (same mechanism the real
++     * RESTART bit uses), or start from the configured head if this
++     * channel has never been walked yet. */
++    uint32_t addr;
++    if (FIELD_EX32(state->state, GDMA_OUT_STATE, LINK_DSCR_ADDR) != 0) {
++        esp_gdma_get_restart_buffer(s, chan, ESP_GDMA_OUT_IDX, &addr);
++    } else {
++        addr = ((ESP_GDMA_RAM_ADDR >> 20) << 20) | FIELD_EX32(state->link, GDMA_OUT_LINK, ADDR);
++    }
++
++    GdmaLinkedList list;
++    bool valid = esp_gdma_read_descr(s, addr, &list);
++    if (!valid || (owner_check_out && !list.config.owner)) {
++        /* Nothing new queued by the guest yet this tick; not an error. */
++        return true;
++    }
++    esp_gdma_push_descriptor(s, chan, ESP_GDMA_OUT_IDX, addr);
++
++    bool keep_going = true;
++    uint32_t visited = 0;
++
++    while (visited < max_descriptors) {
++        const uint32_t length = list.config.length;
++        uint8_t *data = g_malloc(length ? length : 1);
++        valid = esp_gdma_read_guest(s, list.buf_addr, data, length);
++        if (!valid) {
++            g_free(data);
++            esp_gdma_set_status(&state->int_state, R_GDMA_INTERRUPT_OUT_DSCR_ERR_MASK);
++            return false;
++        }
++
++        const bool eof_bit = list.config.suc_eof;
++        keep_going = cb(opaque, list.buf_addr, data, length, eof_bit);
++        g_free(data);
++        visited++;
++
++        if (eof_bit) {
++            esp_gdma_set_status(&state->int_state, R_GDMA_INTERRUPT_OUT_EOF_MASK |
++                                                    R_GDMA_INTERRUPT_OUT_TOTAL_EOF_MASK);
++            break;
++        }
++        if (!keep_going) {
++            break;
++        }
++
++        valid = esp_gdma_next_list_node(s, chan, ESP_GDMA_OUT_IDX, &list);
++        if (!valid || (owner_check_out && !list.config.owner)) {
++            break;
++        }
++    }
++
++    esp_gdma_set_status(&state->int_state, R_GDMA_INTERRUPT_OUT_DONE_MASK);
++    return true;
++}
++
+ 
+ /**
+  * @brief Check if a memory-to-memory transfer can be started and start it if possible
+--- a/include/hw/dma/esp_gdma.h
++++ b/include/hw/dma/esp_gdma.h
+@@ -158,6 +158,34 @@
+ bool esp_gdma_read_channel(ESPGdmaState *s, uint32_t chan, uint8_t* buffer, uint32_t size);
+ bool esp_gdma_write_channel(ESPGdmaState *s, uint32_t chan, uint8_t* buffer, uint32_t size);
+ 
++/**
++ * @brief Callback invoked once per descriptor visited by
++ * `esp_gdma_walk_channel_until_eof`, with that descriptor's real
++ * guest payload itself (never a reconstructed/aggregated buffer).
++ * Return false to stop the walk early, true to keep going.
++ */
++typedef bool (*esp_gdma_descriptor_cb)(void *opaque, uint32_t buf_addr,
++                                       const uint8_t *data, uint32_t length, bool is_eof);
++
++/**
++ * @brief Walk one real lap of a continuous-streaming OUT channel's
++ * descriptor ring, starting from wherever the last lap left off (or
++ * the configured link head on the very first lap), invoking `cb`
++ * once per descriptor visited by that descriptor's real address and
++ * payload itself. Returns false only on a real descriptor error
++ * (matching `esp_gdma_read_channel`'s error status reporting);
++ * encountering a not-yet-owned-by-DMA descriptor (nothing new queued
++ * this tick) or reaching `max_descriptors` is not an error.
++ *
++ * @param s GDMA state
++ * @param chan Channel index to walk
++ * @param max_descriptors Upper bound on descriptors visited per call
++ * @param cb Callback invoked once per descriptor visited
++ * @param opaque Passed through to `cb` unchanged
++ */
++bool esp_gdma_walk_channel_until_eof(ESPGdmaState *s, uint32_t chan, uint32_t max_descriptors,
++                                      esp_gdma_descriptor_cb cb, void *opaque);
++
+ 
+ /**
+  * @brief Function only meant to be used by inherited classes
