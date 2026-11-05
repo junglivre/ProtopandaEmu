@@ -27,7 +27,8 @@ O Protopanda Emulator está em desenvolvimento para testar animações, conferir
 | Execução sem interface gráfica | Validação de perfil, UART ao vivo, relatórios de recursos e sessões com tempo limite. |
 | Persistência | Flash e SD privado preservados entre parada limpa e reinício. |
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
-| HUB75 e OLED | Existem testes de periféricos; a renderização completa ainda não está disponível. |
+| OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
+| HUB75 | Um teste de periférico alcança tráfego DMA real; a transmissão contínua de quadros ainda não está implementada. |
 | Launcher desktop | Previsto após armazenamento e renderização. |
 
 A execução usa um fork experimental do [QEMU da Espressif](https://github.com/espressif/qemu), com patches em [`backend/qemu/`](backend/qemu/). Os testes dos backends originais ainda encontram bloqueios de boot. Resultados do fork modificado não significam suporte no QEMU original.
@@ -100,6 +101,14 @@ python3 scripts/prove-m3.py
 
 Ela prepara uma pasta real, inicia o firmware, confirma que a própria leitura/gravação Lua do guest chegou ao computador, e testa toda a matriz de erros, conflitos e recuperação de falhas com falhas reais do sistema de arquivos.
 
+### Verifique a saída do OLED
+
+```bash
+python3 scripts/prove-m4-oled.py
+```
+
+Isso inicia o firmware com sua configuração real de display, captura o tráfego real de comandos e pixels I2C do SSD1306, e confere o quadro do ícone de abertura byte a byte contra um oráculo que este script deriva de forma independente a partir do próprio bitmap do ícone compilado no firmware. A transmissão do HUB75 ainda não está implementada, então essa verificação encerra a sessão logo após o trabalho do OLED terminar, sem esperar o resto do boot.
+
 ## Compilação e inspeção
 
 - [`scripts/build-firmware.sh`](scripts/build-firmware.sh) compila o firmware fixado nas variantes release e debug. Exige PlatformIO Core 6.2.0; as versões das dependências Python estão em [`requirements-build.txt`](requirements-build.txt).
@@ -122,7 +131,7 @@ Um teste pode registrar um bloqueio ou `NOT_EXECUTED`; nenhum desses resultados 
 
 ## Próximas etapas
 
-1. Renderizar HUB75 e OLED a partir das transferências reais dos periféricos do firmware.
+1. Transmitir e decodificar quadros HUB75 reais (consumo contínuo de descritores GDMA, bitplanes, permutações de fiação).
 2. Adicionar um launcher desktop com configuração por painel, prévias e diagnósticos ao vivo.
 
 Consulte o [`CHANGELOG.md`](CHANGELOG.md) para ver as alterações implementadas.

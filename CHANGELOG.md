@@ -36,3 +36,23 @@
   the host and surviving a restart), the full §5 error matrix, repeated
   conflicting host/guest edits, and fault injection at every durable commit
   boundary with recovery idempotency checks.
+- Fix a real QEMU model bug: the toy SSD1306 realization wired I2C0's
+  interrupt to the wrong intmatrix source (`ETS_I2C_EXT1_INTR_SOURCE`
+  instead of `ETS_I2C_EXT0_INTR_SOURCE`), which silently stalled every
+  successful I2C address ACK on its own driver timeout while a NACK
+  still resolved instantly -- the real cause of the unmodified
+  firmware's "no device found" result and the later `display.begin()`
+  hang. The firmware's own I2C scan now reports "I2C device found at
+  address 60" immediately.
+- Implement the real SSD1306 protocol in the experimental QEMU fork:
+  command/data byte-stream parsing (including multi-byte commands the
+  real driver can split across several I2C transfers), real
+  `COLUMNADDR`/`PAGEADDR` horizontal-addressing windows and wraparound,
+  and a real 128x64 GDDRAM buffer. Add `scripts/prove-m4-oled.py`,
+  which boots the unmodified firmware with its real display
+  configuration and checks the captured splash-icon frame byte-for-byte
+  against an oracle independently re-derived from the firmware's own
+  compiled-in icon bitmap (not the renderer under test).
+- HUB75 continuous frame streaming (GDMA descriptor-ring consumption,
+  bitplane decode) remains unimplemented; the existing probe reaches
+  real GDMA traffic but still only reads one fixed-size sample.

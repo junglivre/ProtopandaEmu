@@ -27,7 +27,8 @@ Protopanda Emulator is being built for testing animations, checking panel wiring
 | Headless runner | Profile validation, live UART, resource reports and bounded sessions. |
 | Persistent state | Flash and private SD state survive a clean stop and restart. |
 | Folder-backed storage | A chosen folder becomes the firmware's SD card: safe staging, crash-recoverable commit, backups and conflict retention. |
-| HUB75 and OLED | Peripheral probes exist; complete rendering is not available yet. |
+| OLED | Real SSD1306 I2C protocol, real 128x64 GDDRAM; byte-exact against an independently derived oracle. |
+| HUB75 | A peripheral probe reaches real GDMA traffic; continuous frame streaming is not implemented yet. |
 | Desktop launcher | Planned after storage and rendering. |
 
 The runner uses an experimental [Espressif QEMU](https://github.com/espressif/qemu) fork with patches in [`backend/qemu/`](backend/qemu/). Stock backend probes still have boot blockers. Results from the patched fork do not imply support in stock QEMU.
@@ -100,6 +101,14 @@ python3 scripts/prove-m3.py
 
 This stages a real folder, boots the firmware, confirms the guest's own Lua read/write reached the host, and exercises the full error, conflict and crash-recovery matrix with real filesystem faults.
 
+### Verify the OLED output
+
+```bash
+python3 scripts/prove-m4-oled.py
+```
+
+This boots the firmware with its real display configuration, captures the SSD1306's actual I2C command and pixel traffic, and checks the splash-icon frame byte-for-byte against an oracle this script derives independently from the firmware's own compiled-in icon bitmap. HUB75 streaming is not implemented yet, so this check stops the session right after the OLED work completes rather than waiting for the rest of boot.
+
 ## Build and inspect
 
 - [`scripts/build-firmware.sh`](scripts/build-firmware.sh) builds the pinned release and debug firmware. It requires PlatformIO Core 6.2.0; Python dependency pins are in [`requirements-build.txt`](requirements-build.txt).
@@ -122,7 +131,7 @@ A probe can report a blocker or `NOT_EXECUTED`; neither means the firmware passe
 
 ## Next milestones
 
-1. Render HUB75 and OLED output from the firmware's actual peripheral traffic.
+1. Stream and decode real HUB75 frames (continuous GDMA descriptor consumption, bitplanes, wiring permutations).
 2. Add a desktop launcher with per-panel wiring controls, previews and live diagnostics.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for implemented changes.
