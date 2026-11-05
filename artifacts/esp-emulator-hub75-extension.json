@@ -30,7 +30,7 @@
     ]
   ],
   "confirmed_scope": "none",
-  "finished_at_utc": "2026-11-04T22:27:09.566+00:00",
+  "finished_at_utc": "2026-11-05T00:15:57.394+00:00",
   "firmware": {
     "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin",
     "provenance": "Rock 1 artifacts/build-normal/release/merged_flash.bin",
@@ -39,17 +39,17 @@
   },
   "logs": {
     "combined": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.combined.log",
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/818443c9-8476-491f-b283-4553d7e94878/esp-emulator-hub75-probe.combined.log",
       "sha256": "7656b790e60f8675801b2172ab8da2ecbe8677aa62a895a865560ffa11491878",
       "size": 13408
     },
     "stderr": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stderr.log",
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/818443c9-8476-491f-b283-4553d7e94878/esp-emulator-hub75-probe.stderr.log",
       "sha256": "435e11b0ac54bffc61046cf3875735044d7a49135fc0f5b1a6e0bbd3c038fea6",
       "size": 108
     },
     "stdout": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stdout.log",
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/818443c9-8476-491f-b283-4553d7e94878/esp-emulator-hub75-probe.stdout.log",
       "sha256": "0faf6870ca8da1ab1ba43acf724328746f7516364018d5389dc1ebeee1896275",
       "size": 13276
     }
@@ -76,17 +76,17 @@
     ],
     "logs": {
       "combined": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stdout.phase-a.stdout.combined.log",
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/818443c9-8476-491f-b283-4553d7e94878/esp-emulator-hub75-probe.stdout.phase-a.stdout.combined.log",
         "sha256": "e424ea0b3d13b2d5f1f80db915cde14fa14774dd1959c8b6c7721fd6ea60772a",
         "size": 13340
       },
       "stderr": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stderr.phase-a.stderr.log",
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/818443c9-8476-491f-b283-4553d7e94878/esp-emulator-hub75-probe.stderr.phase-a.stderr.log",
         "sha256": "6aaf85b830b463303c4d74e2a56abe02e9c85a61401084ce13ab621959515d2f",
         "size": 75
       },
       "stdout": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/3eeab1c4-15ec-426f-ab95-25f23f6a08e4/esp-emulator-hub75-probe.stdout.phase-a.stdout.log",
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/818443c9-8476-491f-b283-4553d7e94878/esp-emulator-hub75-probe.stdout.phase-a.stdout.log",
         "sha256": "f72fcee69ff57715f01d6defd40c047ef5208ae1cda4e1b40ede0076daa08d18",
         "size": 13243
       }
@@ -111,8 +111,8 @@
     "psram_bytes": 8388608,
     "psram_mode": "octal"
   },
-  "run_id": "3eeab1c4-15ec-426f-ab95-25f23f6a08e4",
+  "run_id": "818443c9-8476-491f-b283-4553d7e94878",
   "schema": "protopandaemu-spike/v1",
-  "started_at_utc": "2026-11-04T22:27:09.522+00:00",
+  "started_at_utc": "2026-11-05T00:15:57.350+00:00",
   "status": "NOT_EXECUTED"
 }

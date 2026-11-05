@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+Subject: [PATCH] Rock 4: use real LCD_CAM GDMA and ESP32-S3 I2C opcodes
+
+diff --git a/hw/xtensa/esp32s3.c b/hw/xtensa/esp32s3.c
+--- a/hw/xtensa/esp32s3.c
++++ b/hw/xtensa/esp32s3.c
+@@ -807,14 +807,6 @@
+                                 TYPE_ESP32S3_TOY_SSD1306, 0x3c);
+     }
+ 
+-    /* Rock 4 experimental LCD_CAM/HUB75-shaped DMA sink. */
+-    {
+-        object_property_set_link(OBJECT(&ss->toy_hub75), "soc_mr", OBJECT(dram),
+-                                  &error_abort);
+-        sysbus_realize(SYS_BUS_DEVICE(&ss->toy_hub75), &error_fatal);
+-        MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&ss->toy_hub75), 0);
+-        memory_region_add_subregion_overlap(sys_mem, DR_REG_LCD_CAM_BASE, mr, 0);
+-    }
+ 
+ 
+     /* GDMA Realization */
+@@ -814,6 +814,7 @@
+     /* GDMA Realization */
+     {
+-        object_property_set_link(OBJECT(&ss->gdma), "soc_mr", OBJECT(dram), &error_abort);
++        /* GDMA descriptor addresses are absolute ESP32-S3 system addresses. */
++        object_property_set_link(OBJECT(&ss->gdma), "soc_mr", OBJECT(sys_mem), &error_abort);
+         sysbus_realize(SYS_BUS_DEVICE(&ss->gdma), &error_fatal);
+         MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&ss->gdma), 0);
+         memory_region_add_subregion_overlap(sys_mem, DR_REG_GDMA_BASE, mr, 0);
+@@ -832,6 +833,14 @@
+         }
+    }
+ 
++    /* Rock 4 experimental LCD_CAM/HUB75-shaped DMA sink. */
++    {
++        ss->toy_hub75.gdma = ESP_GDMA(&ss->gdma);
++        sysbus_realize(SYS_BUS_DEVICE(&ss->toy_hub75), &error_fatal);
++        MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&ss->toy_hub75), 0);
++        memory_region_add_subregion_overlap(sys_mem, DR_REG_LCD_CAM_BASE, mr, 0);
++    }
++
+     /* SHA realization */
+     {
+        ss->sha.parent.gdma = ESP_GDMA(&ss->gdma);
+diff --git a/include/hw/i2c/esp32_i2c.h b/include/hw/i2c/esp32_i2c.h
+--- a/include/hw/i2c/esp32_i2c.h
++++ b/include/hw/i2c/esp32_i2c.h
+@@ -102,5 +102,5 @@
+-    I2C_OPCODE_RSTART = 0,
++    I2C_OPCODE_RSTART = 6,
+     I2C_OPCODE_WRITE  = 1,
+-    I2C_OPCODE_READ   = 2,
+-    I2C_OPCODE_STOP   = 3,
++    I2C_OPCODE_READ   = 3,
++    I2C_OPCODE_STOP   = 2,
+     I2C_OPCODE_END    = 4,

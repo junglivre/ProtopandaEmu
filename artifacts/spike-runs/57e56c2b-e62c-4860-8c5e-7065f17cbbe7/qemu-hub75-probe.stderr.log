@@ -1,0 +1,572 @@
+--- PHASE A ---
+Not initializing SPI Flash
+Warning: both -bios and -kernel arguments specified. Only loading the the -kernel file.
+qemu-system-xtensa: info: [protopandaemu.ssd1306] I2C transfer observed address=0x3c bytes=2 control=0x00
+qemu-system-xtensa: info: [protopandaemu.hub75] LCD_CAM DMA start observed count=1 value=0x08000000
+Invalid read at addr 0x0, size 4, region '(null)', reason: rejected
+Invalid read at addr 0x4, size 4, region '(null)', reason: rejected
+Invalid read at addr 0x8, size 4, region '(null)', reason: rejected
+Invalid read at addr 0x0, size 4, region '(null)', reason: rejected
+Invalid read at addr 0x4, size 4, region '(null)', reason: rejected
+Invalid read at addr 0x8, size 4, region '(null)', reason: rejected
+qemu-system-xtensa: info: [protopandaemu.hub75] DMA transfer observed channel=0 bytes=16 first=44332211
+qemu-system-xtensa: terminating on signal 15 from pid 2169808 (timeout)
+
+--- PHASE B ---
+Adding SPI flash device
+M25P80: Read id (command 0x90/0xAB) is not supported by device
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=128 virt=0x800000 phys=0x0 first4=e904004f
+M25P80: Unknown cmd 5a
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=511 virt=0x1ff0000 phys=0x0 first4=e904004f
+M25P80: Unknown cmd 7a
+M25P80: Unknown cmd 77
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=0 virt=0x0 phys=0x0 first4=e904004f
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=0 virt=0x0 phys=0x0 first4=e904004f
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=511 virt=0x1ff0000 phys=0x10000 first4=e906024f
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=0 virt=0x0 phys=0x10000 first4=e906024f
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=1 virt=0x10000 phys=0x20000 first4=65202020
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=2 virt=0x20000 phys=0x30000 first4=636b2074
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=3 virt=0x30000 phys=0x40000 first4=65007561
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=4 virt=0x40000 phys=0x50000 first4=7c1d437a
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=5 virt=0x50000 phys=0x60000 first4=67000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=6 virt=0x60000 phys=0x70000 first4=4f000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=7 virt=0x70000 phys=0x80000 first4=18000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=511 virt=0x1ff0000 phys=0x80000 first4=18000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=0 virt=0x0 phys=0x80000 first4=18000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=511 virt=0x1ff0000 phys=0x80000 first4=18000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=0 virt=0x0 phys=0x80000 first4=18000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=1 virt=0x10000 phys=0x90000 first4=20007226
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=511 virt=0x1ff0000 phys=0x90000 first4=20007226
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=0 virt=0x0 phys=0x90000 first4=20007226
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=1 virt=0x10000 phys=0xa0000 first4=92621992
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=2 virt=0x20000 phys=0xb0000 first4=e5fcff1d
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=3 virt=0x30000 phys=0xc0000 first4=0c0bad02
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=4 virt=0x40000 phys=0xd0000 first4=e00800a2
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=5 virt=0x50000 phys=0xe0000 first4=a182a120
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=6 virt=0x60000 phys=0xf0000 first4=89045667
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=7 virt=0x70000 phys=0x100000 first4=a8abe008
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=8 virt=0x80000 phys=0x110000 first4=1df00000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=9 virt=0x90000 phys=0x120000 first4=200088aa
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=10 virt=0xa0000 phys=0x130000 first4=1df00000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=11 virt=0xb0000 phys=0x140000 first4=ff269a02
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=12 virt=0xc0000 phys=0x150000 first4=f20f000b
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=13 virt=0xd0000 phys=0x160000 first4=58fbcd07
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=14 virt=0xe0000 phys=0x170000 first4=fd7d0a16
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=15 virt=0xf0000 phys=0x180000 first4=52008187
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=16 virt=0x100000 phys=0x190000 first4=a07881c0
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=17 virt=0x110000 phys=0x1a0000 first4=0925d406
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=18 virt=0x120000 phys=0x1b0000 first4=bb91e008
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=19 virt=0x130000 phys=0x1c0000 first4=690a791a
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=20 virt=0x140000 phys=0x1d0000 first4=18bd07c6
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=21 virt=0x150000 phys=0x1e0000 first4=aa230066
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=22 virt=0x160000 phys=0x1f0000 first4=a2c1109a
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=23 virt=0x170000 phys=0x200000 first4=0be8e904
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=24 virt=0x180000 phys=0x210000 first4=46010000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=511 virt=0x1ff0000 phys=0x210000 first4=46010000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=0 virt=0x0 phys=0x210000 first4=46010000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=1 virt=0x10000 phys=0x220000 first4=7c0990aa
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=511 virt=0x1ff0000 phys=0x220000 first4=7c0990aa
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=0 virt=0x0 phys=0x220000 first4=7c0990aa
+Invalid read at addr 0x10200C, size 4, region 'er', reason: rejected
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=511 virt=0x1ff0000 phys=0x220000 first4=7c0990aa
+Invalid read at addr 0x10200C, size 4, region 'er', reason: rejected
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=25 virt=0x190000 phys=0x10000 first4=e906024f
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=26 virt=0x1a0000 phys=0x20000 first4=65202020
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=27 virt=0x1b0000 phys=0x30000 first4=636b2074
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=28 virt=0x1c0000 phys=0x40000 first4=65007561
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=29 virt=0x1d0000 phys=0x50000 first4=7c1d437a
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=30 virt=0x1e0000 phys=0x60000 first4=67000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=31 virt=0x1f0000 phys=0x70000 first4=4f000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=32 virt=0x200000 phys=0x80000 first4=18000000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=511 virt=0x1ff0000 phys=0x10000 first4=e906024f
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=0 virt=0x0 phys=0x90000 first4=20007226
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=1 virt=0x10000 phys=0xa0000 first4=92621992
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=2 virt=0x20000 phys=0xb0000 first4=e5fcff1d
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=3 virt=0x30000 phys=0xc0000 first4=0c0bad02
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=4 virt=0x40000 phys=0xd0000 first4=e00800a2
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=5 virt=0x50000 phys=0xe0000 first4=a182a120
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=6 virt=0x60000 phys=0xf0000 first4=89045667
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=7 virt=0x70000 phys=0x100000 first4=a8abe008
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=8 virt=0x80000 phys=0x110000 first4=1df00000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=9 virt=0x90000 phys=0x120000 first4=200088aa
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=10 virt=0xa0000 phys=0x130000 first4=1df00000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=11 virt=0xb0000 phys=0x140000 first4=ff269a02
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=12 virt=0xc0000 phys=0x150000 first4=f20f000b
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=13 virt=0xd0000 phys=0x160000 first4=58fbcd07
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=14 virt=0xe0000 phys=0x170000 first4=fd7d0a16
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=15 virt=0xf0000 phys=0x180000 first4=52008187
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=16 virt=0x100000 phys=0x190000 first4=a07881c0
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=17 virt=0x110000 phys=0x1a0000 first4=0925d406
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=18 virt=0x120000 phys=0x1b0000 first4=bb91e008
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=19 virt=0x130000 phys=0x1c0000 first4=690a791a
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=20 virt=0x140000 phys=0x1d0000 first4=18bd07c6
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=21 virt=0x150000 phys=0x1e0000 first4=aa230066
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=22 virt=0x160000 phys=0x1f0000 first4=a2c1109a
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=23 virt=0x170000 phys=0x200000 first4=0be8e904
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=24 virt=0x180000 phys=0x210000 first4=46010000
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=161 virt=0xa10000 phys=0x0 first4=e904004f
+qemu-system-xtensa: info: [CACHE-DBG] map flash page idx=161 virt=0xa10000 phys=0x0 first4=e904004f
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00002000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00020000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00800000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000001
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000000
+dwc_sdmmc_read: read@0x100
+dwc_sdmmc_write: write@0x100 value=0x00000000
+dwc_sdmmc_write: write@0x80 value=0x00000000
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000001
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_write: write@0x10 value=0x00000000
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x08
+dwc_sdmmc_write: write@0x08 value=0x00001400
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000800
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00012000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00120000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00800000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000001
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000000
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_write: write@0x10 value=0x00000002
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_write: write@0x10 value=0x00020000
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x14
+dwc_sdmmc_write: write@0x14 value=0x009c4000
+dwc_sdmmc_read: read@0x14
+dwc_sdmmc_write: write@0x14 value=0x000000ff
+dwc_sdmmc_read: read@0x18
+dwc_sdmmc_read: read@0x18
+dwc_sdmmc_write: write@0x18 value=0x00000000
+dwc_sdmmc_read: read@0x18
+dwc_sdmmc_read: read@0x18
+dwc_sdmmc_write: write@0x18 value=0x00000000
+dwc_sdmmc_read: read@0x50
+SD: Optional CMD52 not implemented
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+SD: Optional CMD5 not implemented
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_write: write@0x10 value=0x00000000
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_write: write@0x10 value=0x00020000
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_write: write@0x10 value=0x00000000
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x08
+dwc_sdmmc_write: write@0x08 value=0x00000000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000600
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x0000e000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x000e0000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00800000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000000
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000001
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_write: write@0x800 value=0x00000000
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_write: write@0x10 value=0x00000002
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_read: read@0x10
+dwc_sdmmc_write: write@0x10 value=0x00020000
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x14
+dwc_sdmmc_write: write@0x14 value=0x1e848000
+dwc_sdmmc_read: read@0x14
+dwc_sdmmc_write: write@0x14 value=0x000000ff
+dwc_sdmmc_read: read@0x800
+dwc_sdmmc_read: read@0x08
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000080
+dwc_sdmmc_read: read@0x80
+dwc_sdmmc_write: write@0x80 value=0x00000002
+dwc_sdmmc_read: read@0x50
+dwc_sdmmc_read: read@0x50
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: esp32_i2c: read I2C FIFO while it is empty
+qemu-system-xtensa: info: [protopandaemu.hub75] LCD_CAM DMA start observed count=1 value=0x3b902000
+qemu-system-xtensa: info: [protopandaemu.hub75] DMA transfer observed channel=0 bytes=16 first=80ff80ff
+qemu-system-xtensa: terminating on signal 15 from pid 2173596 (timeout)

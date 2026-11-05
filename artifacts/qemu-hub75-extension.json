@@ -9,11 +9,12 @@
       "0002-hw-misc-meson.build.patch",
       "0003-esp32s3-spi-dummy-io-scaling.patch",
       "0004-esp32s3-toy-hub75-oled.patch",
-      "0005-esp32-gpio-input-default-high.patch"
+      "0005-esp32-gpio-input-default-high.patch",
+      "0006-rock4-real-gdma-i2c-s3.patch"
     ],
     "path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-source-unpacked/qemu-esp_develop_9.2.2_20260417-src/build/qemu-system-xtensa",
     "repo": "https://github.com/espressif/qemu",
-    "sha256": "6751b1308c186f5fc60a7897ec4a0b9329cb89410402e09b4c657c55aa7c87d0",
+    "sha256": "f40ed83ed9bb2d21a74e07b7f4274fb0706f80fdd099d59ceaa6cd347280a78a",
     "stock_binary_path": "/home/jung/Projects/Proto/ProtopandaEmu/.rf/backends/qemu/bin/qemu-system-xtensa",
     "stock_binary_sha256": "50813d894756c1448b8742e1d8db21e3cce0f4e85b56fe53e36760b941cb7f17",
     "variant": "experimental-patched-QEMU-fork",
@@ -40,7 +41,7 @@
     [
       "bash",
       "/home/jung/Projects/Proto/ProtopandaEmu/backend/qemu/build-toy-guest.sh",
-      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/toy-guest"
+      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/toy-guest"
     ],
     [
       "timeout",
@@ -52,7 +53,7 @@
       "-m",
       "8M",
       "-kernel",
-      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/toy-guest/toy_guest.elf",
+      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/toy-guest/toy_guest.elf",
       "-nic",
       "none",
       "-no-reboot",
@@ -64,9 +65,9 @@
     [
       "bash",
       "/home/jung/Projects/Proto/ProtopandaEmu/scripts/make-sd-image.sh",
-      "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hub75-scratch/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-card.img",
+      "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hub75-scratch/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-sd-card.img",
       "--fixture-root",
-      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-fixture"
+      "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-sd-fixture"
     ],
     [
       "timeout",
@@ -82,7 +83,7 @@
       "-drive",
       "file=/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin,if=mtd,format=raw",
       "-drive",
-      "if=sd,index=0,file=/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hub75-scratch/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-card.img,format=raw,snapshot=on",
+      "if=sd,index=0,file=/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hub75-scratch/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-sd-card.img,format=raw,snapshot=on",
       "-snapshot",
       "-nic",
       "none",
@@ -91,7 +92,7 @@
     ]
   ],
   "confirmed_scope": "backend-only",
-  "finished_at_utc": "2026-11-04T22:28:44.907+00:00",
+  "finished_at_utc": "2026-11-05T00:17:44.291+00:00",
   "firmware": {
     "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/build-normal/release/merged_flash.bin",
     "provenance": "Rock 1 artifacts/build-normal/release/merged_flash.bin",
@@ -100,19 +101,19 @@
   },
   "logs": {
     "combined": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.combined.log",
-      "sha256": "743245a4e92408b4034cd58870fb3b0d43eb2350579189fecb19143d6656d596",
-      "size": 48097
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.combined.log",
+      "sha256": "2e514eb2b8a83d6b3aebd8cd01f3c595d8265798f6440abaff7c4932b8794f93",
+      "size": 33719
     },
     "stderr": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stderr.log",
-      "sha256": "eebc29270aeb1254443ce59b1637d5c9534fa81f2ff5ae9380909cee2b4281da",
-      "size": 47256
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stderr.log",
+      "sha256": "841626d867d62361303487b2fe1ec943aba5e7044e159c8d91b79c986a014cff",
+      "size": 32877
     },
     "stdout": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.log",
-      "sha256": "b1a0719c34d0ba7afe8ffd2f6d7294103ea25a3df73621eba1ef97350020c18c",
-      "size": 817
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stdout.log",
+      "sha256": "9f13afbcf5a15117ef22f628a02b794f9f41b5987636dcd74e50c1c80de1575d",
+      "size": 818
     }
   },
   "marker_evidence": {},
@@ -132,39 +133,39 @@
   "phase_a": {
     "api_documented": "additive C SysBus/I2C models wired into esp32s3; minimal Xtensa ELF drives I2C and LCD_CAM/DMA",
     "build_log": {
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.experimental-build.log",
-      "sha256": "142d66a9eb98b92e090cd098bb6655983af5e54ef153740f9ab4fe3cb6afd43b",
-      "size": 119657
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stdout.experimental-build.log",
+      "sha256": "aef76324674d2c0882adaf2e5922f0aeb82c2b208f24ed31105798b684ba346f",
+      "size": 119858
     },
     "guest": {
       "build_log": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.toy-build.log",
-        "sha256": "29683b11f2b729789ada95675a28e00631f7764743d83aeee859be43274f6297",
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stdout.toy-build.log",
+        "sha256": "7085a79eb5a3f746df866c9ca9f3074360f94cebe9340ae51cff24bc3ca3d184",
         "size": 1411
       },
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/toy-guest/toy_guest.elf",
-      "sha256": "64bb778e3b34768bed31d4d357c8b48022a43b4761f7b7b6de3bb5247e583b3f"
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/toy-guest/toy_guest.elf",
+      "sha256": "6a9871a6275b531d09a86ebc626355ccdfe951d8c1b9714d16cabe90f1141c02"
     },
     "hub75_traffic_observed": true,
     "logs": {
       "combined": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.phase-a.stdout.combined.log",
-        "sha256": "d2adf44d8bb6324097f9e84c480d9997f150343c80442b654ee2ec2bda171429",
-        "size": 530
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stdout.phase-a.stdout.combined.log",
+        "sha256": "20af584911b392e36b0e888f37b6bd729740146dae9aa06df73aecd71e7edbe7",
+        "size": 926
       },
       "stderr": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stderr.phase-a.stderr.log",
-        "sha256": "9c2b967d3bf59f67ad6d710dece7288aa98535e6542c77e2a967571e9589d84c",
-        "size": 509
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stderr.phase-a.stderr.log",
+        "sha256": "63165723b6bf292690ee33d617f41c304bb593c1161a48031fe825bd7f118ede",
+        "size": 905
       },
       "stdout": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.phase-a.stdout.log",
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stdout.phase-a.stdout.log",
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "size": 0
       }
     },
     "process": {
-      "elapsed_ms": 25010.279,
+      "elapsed_ms": 25011.729,
       "first_loop_ms": null,
       "first_stdout_ms": null,
       "return_code": 124,
@@ -180,23 +181,23 @@
     "hub75_traffic_observed": true,
     "logs": {
       "combined": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.phase-b.stdout.combined.log",
-        "sha256": "f2c3d7574ea0e2ba1295a088966715a6f8dd277363405a046a53d88187796f39",
-        "size": 47519
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stdout.phase-b.stdout.combined.log",
+        "sha256": "824bc362d80fd2dea7c34c5e52d9c75db0df660203eb5a5177d8cb4aa50628d8",
+        "size": 32745
       },
       "stderr": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stderr.phase-b.stderr.log",
-        "sha256": "dea8d6b785f032fd10f9bc5be84da178c0aa46b10d41b1b9e52f58e928d7866c",
-        "size": 46714
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stderr.phase-b.stderr.log",
+        "sha256": "5db6302a8b0a8ab387d2c2ecb96ace773c52f99c49759b17013487628df933d2",
+        "size": 31939
       },
       "stdout": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.phase-b.stdout.log",
-        "sha256": "22ff1f92c65c0cee7a44a30a5986433e7c5b9a9763f7964571ac85f29f2ba748",
-        "size": 784
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stdout.phase-b.stdout.log",
+        "sha256": "8cbc27013287f60032c24214b44d3146bbb4c2643551e9f2c7d180f186d3d582",
+        "size": 785
       }
     },
     "process": {
-      "elapsed_ms": 25006.465,
+      "elapsed_ms": 25007.673,
       "first_loop_ms": null,
       "first_stdout_ms": 0.0,
       "return_code": 124,
@@ -204,15 +205,15 @@
     },
     "sd_image": {
       "build_log": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-probe.stdout.sd-image.log",
-        "sha256": "88c51dfe8f3d3b9c689bd36b4bbdc03d01b356b159fca9f4d0b8f01b38874739",
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-probe.stdout.sd-image.log",
+        "sha256": "38c4ff5a02389322ef7e574e837c2f19d6eb4630d5cbb51c341ef8c30ac99b24",
         "size": 334
       },
-      "path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hub75-scratch/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-card.img",
-      "sha256": "16f5e4059452b185086875fccf3cbed517bf2db33f5808fb8a3fdf108b88bf79",
+      "path": "/home/jung/Projects/Proto/ProtopandaEmu/.work/qemu-hub75-scratch/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-sd-card.img",
+      "sha256": "614770da0756b603860dc5de3db7fa973bc74e65023536e7b87923d80a717c72",
       "sha256_file": {
-        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/52736c59-0caa-4391-8457-f22fc0f2c814/qemu-hub75-sd-card.img.sha256",
-        "sha256": "a590cee04be3d1fcf27d336be6464cdc1423738a797716b5ebd62231bb6f0625",
+        "path": "/home/jung/Projects/Proto/ProtopandaEmu/artifacts/spike-runs/57e56c2b-e62c-4860-8c5e-7065f17cbbe7/qemu-hub75-sd-card.img.sha256",
+        "sha256": "f566ea6ac09311ae08d9be58f322fe9c8a047b8194fa8c5911a7bcbcbacc007a",
         "size": 191
       }
     },
@@ -251,8 +252,8 @@
     "psram_bytes": 8388608,
     "psram_mode": "octal"
   },
-  "run_id": "52736c59-0caa-4391-8457-f22fc0f2c814",
+  "run_id": "57e56c2b-e62c-4860-8c5e-7065f17cbbe7",
   "schema": "protopandaemu-spike/v1",
-  "started_at_utc": "2026-11-04T22:27:10.948+00:00",
+  "started_at_utc": "2026-11-05T00:16:01.633+00:00",
   "status": "TECHNICAL_BLOCKER"
 }

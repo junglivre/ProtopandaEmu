@@ -9,6 +9,7 @@
 
 #include "hw/hw.h"
 #include "hw/sysbus.h"
+#include "hw/dma/esp_gdma.h"
 
 #define TYPE_ESP32S3_TOY_HUB75 "display.esp32s3.toy-hub75"
 #define ESP32S3_TOY_HUB75(obj) \
@@ -19,8 +20,8 @@
 typedef struct Esp32s3ToyHub75State {
     SysBusDevice parent_obj;
     MemoryRegion iomem;
-    MemoryRegion *soc_mr;
-    AddressSpace dma_as;
     uint32_t regs[ESP32S3_TOY_HUB75_SIZE / sizeof(uint32_t)];
     uint32_t transfer_count;
+    /* Set by the ESP32-S3 SoC before realization, like the AES/SHA models. */
+    ESPGdmaState *gdma;
 } Esp32s3ToyHub75State;

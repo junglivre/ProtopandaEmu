@@ -124,6 +124,15 @@ else
   echo "Rock 4 GPIO input default already applied (idempotent): $APPLY_MARKER4"
 fi
 
+APPLY_MARKER5="$SOURCE_DIR/.protopandaemu-rock4-gdma-i2c-s3-applied"
+if [[ ! -f "$APPLY_MARKER5" ]]; then
+  echo "+ applying Rock 4 real GDMA/LCD_CAM integration and ESP32-S3 I2C opcode patch"
+  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0006-rock4-real-gdma-i2c-s3.patch"
+  touch "$APPLY_MARKER5"
+else
+  echo "Rock 4 real GDMA/I2C patch already applied (idempotent): $APPLY_MARKER5"
+fi
+
 cd "$SOURCE_DIR"
 if [[ ! -f build/build.ninja ]]; then
   echo "+ configure"

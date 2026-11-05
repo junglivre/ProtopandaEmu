@@ -93,14 +93,14 @@ toy_main:
     s32i    a3, a2, 0x1c
     movi    a3, 0x0903       /* cmd0: 3 bytes, ACK-check, WRITE */
     s32i    a3, a2, 0x58
-    movi    a3, 0x1800       /* cmd1: STOP */
+    movi    a3, 0x1000       /* cmd1: STOP (ESP32-S3 opcode 2) */
     s32i    a3, a2, 0x5c
     movi    a3, 0x30         /* master mode + TRANS_START */
     s32i    a3, a2, 0x04
 
     /* A tiny DMA descriptor and payload in ESP32-S3 DRAM. */
     movi    a2, 0x3fc80000
-    movi    a3, 0xc0000010   /* owner+suc_eof, size=length=16 */
+    movi    a3, 0xc0010010   /* owner+suc_eof, size=length=16 */
     s32i    a3, a2, 0
     movi    a3, 0x3fc80020
     s32i    a3, a2, 4
@@ -116,9 +116,14 @@ toy_main:
     movi    a3, 0xddeeff00
     s32i    a3, a2, 12
 
-    movi    a2, 0x60041000
+    /* Configure the real GDMA channel 0 TX path for LCD_CAM (peripheral 5). */
+    movi    a2, 0x6003f000
+    movi    a3, 5
+    s32i    a3, a2, 0xa8       /* GDMA_OUT_PERI_SEL_CH0 */
     movi    a3, 0x3fc80000
-    s32i    a3, a2, 0
+    s32i    a3, a2, 0x80       /* GDMA_OUT_LINK_CH0 */
+
+    movi    a2, 0x60041000
     movi    a3, 0x08000000   /* LCD_CAM_LCD_START */
     s32i    a3, a2, 0x14
 

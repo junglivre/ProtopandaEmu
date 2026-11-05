@@ -144,7 +144,8 @@ def experimental_qemu_info(stock_info: dict) -> dict:
             "patches": ["0001-esp32s3.c.patch", "0002-hw-misc-meson.build.patch",
                         "0003-esp32s3-spi-dummy-io-scaling.patch",
                         "0004-esp32s3-toy-hub75-oled.patch",
-                        "0005-esp32-gpio-input-default-high.patch"]}
+                        "0005-esp32-gpio-input-default-high.patch",
+                        "0006-rock4-real-gdma-i2c-s3.patch"]}
 
 
 def start_command(backend: str, firmware: pathlib.Path, timeout: float) -> list[str]:
