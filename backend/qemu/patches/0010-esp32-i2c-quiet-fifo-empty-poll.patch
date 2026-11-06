@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+Subject: [PATCH] ESP32 I2C: stop spamming stderr on empty-FIFO poll reads
+
+The ESP-IDF I2C driver polls the FIFO data register in a tight loop as
+part of its own transfer-completion wait; every single poll iteration
+that lands before new data is pushed hits this empty-FIFO branch. The
+model logged it with an unconditional error_report() (a synchronous
+fprintf+flush on every call), which is not a QEMU bug or even a real
+guest error -- real hardware just returns a stale/undefined byte here,
+silently. In one real-firmware boot session, this produced over one
+million log lines in a few seconds, each a blocking stderr write,
+which throttled the whole TCG main loop badly enough to look like the
+emulator had hung (confirmed: the guest's own OLED/HUB75 content kept
+genuinely changing throughout, so nothing was logically stuck -- the
+dominant stderr write overhead was single-handedly bottlenecking
+wall-clock progress).
+
+Switch to qemu_log_mask(LOG_GUEST_ERROR, ...), the standard QEMU idiom
+for "guest did something a real device would silently tolerate": by
+default (no -d guest_errors passed, which this project's launcher
+never passes) it is a no-op, eliminating the overhead entirely while
+keeping the diagnostic available for anyone who does pass -d.
+
+--- a/hw/i2c/esp32_i2c.c
++++ b/hw/i2c/esp32_i2c.c
+@@ -59,7 +59,7 @@
+         return esp32_i2c_get_status_reg(s);
+     case A_I2C_FIFO_DATA: {
+         if (fifo8_num_used(&s->rx_fifo) == 0) {
+-            error_report("esp32_i2c: read I2C FIFO while it is empty");
++            qemu_log_mask(LOG_GUEST_ERROR, "esp32_i2c: read I2C FIFO while it is empty\n");
+             return 0xee;
+         }
+         uint8_t res = fifo8_pop(&s->rx_fifo);

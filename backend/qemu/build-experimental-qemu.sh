@@ -160,6 +160,15 @@ else
   echo "RMT TX model patch already applied (idempotent): $APPLY_MARKER8"
 fi
 
+APPLY_MARKER9="$SOURCE_DIR/.protopandaemu-i2c-quiet-fifo-applied"
+if [[ ! -f "$APPLY_MARKER9" ]]; then
+  echo "+ applying ESP32 I2C quiet-FIFO-empty-poll patch"
+  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0010-esp32-i2c-quiet-fifo-empty-poll.patch"
+  touch "$APPLY_MARKER9"
+else
+  echo "I2C quiet-FIFO patch already applied (idempotent): $APPLY_MARKER9"
+fi
+
 cd "$SOURCE_DIR"
 if [[ ! -f build/build.ninja ]]; then
   echo "+ configure"

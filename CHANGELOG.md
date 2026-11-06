@@ -138,3 +138,13 @@
   side: HUB75's real panel geometry (128x32, 4:1) and OLED's (128x64, 2:1)
   both wasted horizontal space split into two columns, capping pixel zoom
   at 3x. Full-width stacked panels now render at 6x.
+- Fix a real emulator performance bug that looked like a GUI freeze: the
+  ESP32 I2C model logged an unconditional `error_report()` on every
+  tight-loop poll of an empty FIFO register (the ESP-IDF I2C driver's own
+  transfer-wait pattern), and the launcher's QEMU invocation already
+  passes `-d guest_errors`. One real boot session produced over 2.5
+  million blocking stderr writes in 15 seconds, which throttled the TCG
+  main loop badly enough that guest progress (UART output, HUB75/OLED
+  content) nearly stalled, even though nothing was logically stuck. Now
+  logged once per process lifetime instead
+  (`backend/qemu/patches/0010-esp32-i2c-quiet-fifo-empty-poll.patch`).
