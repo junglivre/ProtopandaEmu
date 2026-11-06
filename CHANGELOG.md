@@ -182,3 +182,15 @@
   cleared. Lidar-mode SD cards have no digital pin to override. Verified
   against a real boot on the user's own SD card: the console echoed both
   a near (1) and a far (0) override taking effect for the configured pin.
+- Default the boop sensor to "far" as soon as a session's guest loop is
+  confirmed running, instead of leaving it to whatever the real
+  (unconnected) emulated pin happens to read. Without this, boop read as
+  permanently triggered from boot for this user's wiring, unaffected by
+  the launcher toggle until the first click. Sending the override right
+  when the session starts was tried and discarded: the console parser
+  only reads Serial once `loop()` is running, and bytes arriving during
+  the ROM bootloader/`setup()` window were silently lost. `refresh()`
+  now sends it once, gated on the "vfs_init" boot marker (a generic,
+  SD-card-content-independent signal the guest loop is actually
+  consuming console input). Regression tests:
+  `tests/test_launcher.py::DeferredBoopDefaultOverrideTests`.
