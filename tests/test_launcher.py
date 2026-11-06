@@ -1,13 +1,16 @@
 """Launcher regression tests for bugs found against a real user SD-card config.
 
-Both are boundary/invariant bugs a GUI user can hit in practice, not synthetic
-cases: a growing session log must not force an O(size) read every refresh
-tick, and rewriting a user's hand-authored animation.json for four new wiring
-fields must not silently reorder/reformat the rest of their file.
+Each covers a boundary/invariant bug a GUI user can hit in practice, not a
+synthetic case: a growing session log must not force an O(size) read every
+refresh tick, rewriting a user's hand-authored animation.json for four new
+wiring fields must not silently reorder/reformat the rest of their file, a
+dump landing mid-write in the log tail must not raise inside the refresh
+loop, and nothing in refresh() may prevent it from rescheduling itself.
 """
 import json
 import sys
 import tempfile
+import tkinter as tk
 import unittest
 from pathlib import Path
 
@@ -73,6 +76,65 @@ class ReadLatestDumpsBoundedReadTests(unittest.TestCase):
             self.assertIsNotNone(oled)
             self.assertEqual(oled["seq"], 3)
             self.assertEqual(oled["data"], bytes.fromhex("deadbeef"))
+
+
+class ReadLatestDumpsSkipsTruncatedTailMatchTests(unittest.TestCase):
+    """A tail read can start mid-dump, truncating its hex payload. The
+    decoder must skip that broken match and fall back to the previous,
+    fully-written dump instead of raising (which used to kill the GUI
+    refresh loop permanently -- see RefreshRescheduleTests below)."""
+
+    def test_truncated_newest_dump_falls_back_to_previous_complete_one(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.stderr.log"
+            good = ("qemu-system-xtensa: info: [protopandaemu.ssd1306] GDDRAM_DUMP "
+                    "seq=1 width=128 height=64 bytes=4 hex=deadbeef\n")
+            # hex payload cut short mid-byte, as a tail-window seek would do.
+            truncated = ("qemu-system-xtensa: info: [protopandaemu.ssd1306] GDDRAM_DUMP "
+                         "seq=2 width=128 height=64 bytes=4 hex=dead\n")
+            path.write_text(good + truncated, encoding="utf-8")
+
+            oled, hub = launcher._read_latest_dumps(path)
+
+            self.assertIsNone(hub)
+            self.assertIsNotNone(oled)
+            self.assertEqual(oled["seq"], 1)
+            self.assertEqual(oled["data"], bytes.fromhex("deadbeef"))
+
+
+class RefreshRescheduleTests(unittest.TestCase):
+    """refresh() must reschedule itself via after() BEFORE doing any work
+    that can raise. A session_report() crash (or any other body exception)
+    used to kill the after() chain outright: the dashboard froze forever,
+    even across starting a brand new session, because the polling loop
+    itself was dead, not the session."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_refresh_reschedules_even_when_session_report_raises(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)  # cancel the real __init__ tick
+
+        class ExplodingHandle:
+            def session_report(self):
+                raise RuntimeError("backend report boom")
+
+        app.handle = ExplodingHandle()
+        before = app._after_id
+
+        app.refresh()
+
+        self.assertIsNotNone(app._after_id)
+        self.assertNotEqual(app._after_id, before)
+        self.assertIn("Erro no preview", app.status_var.get())
 
 
 if __name__ == "__main__":
