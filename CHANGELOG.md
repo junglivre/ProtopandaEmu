@@ -134,10 +134,28 @@
   structurally (the lone bucket outside the dense `0..N-1` address run)
   and excluded from both geometry and painting. Evidence:
   `artifacts/mvp/hub75-geometry-fix-proof/`.
-- Restack the launcher's OLED/HUB75 preview vertically instead of side by
-  side: HUB75's real panel geometry (128x32, 4:1) and OLED's (128x64, 2:1)
-  both wasted horizontal space split into two columns, capping pixel zoom
-  at 3x. Full-width stacked panels now render at 6x.
+- Revamp the launcher GUI: full English translation (it was partly
+  Portuguese); a dark theme applied uniformly via `ttk.Style` (frames,
+  labels, buttons, combobox, including the combobox dropdown listbox,
+  which isn't themeable through `ttk.Style` alone and needs the Tk
+  option database); a device-accurate three-panel preview layout (one
+  combined HUB75 FRAME_DUMP decodes into left/right eye-panel halves per
+  `hardware.json`'s `horizontal_panel_count=2`, each on its own canvas,
+  OLED's status display centered above between them), every panel sized
+  at its exact native 2:1 aspect so the canvas fills its frame with no
+  stretch-induced letterboxing; window resizing locked to the launcher's
+  own aspect ratio (`wm_aspect`) so dragging a corner scales every panel
+  proportionally instead of distorting one axis; a firmware picker next
+  to the SD-card picker (explicit choice beats
+  `PROTOPANDAEMU_EMU_FIRMWARE`/auto-detection); simulated controls
+  restyled into an actual D-pad cross with a boop toggle (purple when
+  active) next to Back/Aux, reading the configured pin from the loaded
+  SD card's `misc.json`; start/stop session buttons laid out side by
+  side and colored (green/grey/red) so the current state is obvious at a
+  glance; the preview poll interval cut from 100ms to 50ms. Regression
+  tests: `tests/test_launcher.py::DrawHub75SplitsLeftRightHalvesTests`,
+  `ExplicitFirmwarePickOverridesAutoDetectionTests`, `BoopConfigLoadTests`,
+  `ToggleBoopSendsGpioOverrideTests`.
 - Fix a real emulator performance bug that looked like a GUI freeze: the
   ESP32 I2C model logged an unconditional `error_report()` on every
   tight-loop poll of an empty FIFO register (the ESP-IDF I2C driver's own
