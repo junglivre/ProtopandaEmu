@@ -25,7 +25,7 @@
 #define HUB75_ADDR_SHIFT 8
 #define HUB75_ADDR_MASK 0x1Fu /* A..E, 5 bits -> up to 32 virtual rows */
 
-#define HUB75_REFRESH_INTERVAL_NS (5 * 1000 * 1000) /* 5ms: real refresh rate is not claimed, only steady-state content */
+#define HUB75_REFRESH_INTERVAL_NS (2 * 1000 * 1000) /* 2ms: real refresh rate is not claimed, only steady-state content; tightened from 5ms for lower perceived preview latency */
 #define HUB75_MAX_DESCRIPTORS_PER_LAP 4096
 
 typedef struct Hub75Plane {

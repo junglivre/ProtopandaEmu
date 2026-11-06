@@ -148,3 +148,7 @@
   content) nearly stalled, even though nothing was logically stuck. Now
   logged once per process lifetime instead
   (`backend/qemu/patches/0010-esp32-i2c-quiet-fifo-empty-poll.patch`).
+- Cut the HUB75 backend's internal ring-sampling interval from 5ms to
+  2ms (`HUB75_REFRESH_INTERVAL_NS`), so the guest can produce fresher
+  frames for anything polling the FRAME_DUMP (the launcher preview,
+  but also any other consumer of that channel).
