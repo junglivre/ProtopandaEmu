@@ -22,6 +22,10 @@ from . import supervisor
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 FIRMWARE = ROOT / "artifacts/build-normal/release/merged_flash.bin"
+# Built by scripts/build-firmware-emu.sh from the user's own firmware fork
+# with -DPROTOPANDAEMU_EMU=1; used automatically when present so the common
+# "run my own firmware + SD card as-is" workflow needs no env vars.
+EMU_FIRMWARE = ROOT / "artifacts/build-emu/release/merged_flash.bin"
 WIRE_COLOR_SCHEMES = ("rgb", "rbg", "grb", "gbr", "brg", "bgr")
 BOARD_PROFILE = {
     "chip": "esp32s3",
@@ -375,8 +379,20 @@ class LauncherApp:
                 emu_path = pathlib.Path(emu_firmware).expanduser().resolve()
                 if not emu_path.is_file():
                     raise LauncherError(f"PROTOPANDAEMU_EMU_FIRMWARE não existe: {emu_path}")
+            elif EMU_FIRMWARE.is_file():
+                # Default to the user's own firmware build when present; no
+                # env var needed for the common as-is workflow.
+                emu_path = EMU_FIRMWARE
+            else:
+                emu_path = None
+            if emu_path is not None:
                 profile["firmware_image"] = str(emu_path)
-                profile["firmware_sha256"] = supervisor._stable_sha256(emu_path, "firmware_image")
+                emu_hash = supervisor._stable_sha256(emu_path, "firmware_image")
+                profile["firmware_sha256"] = emu_hash
+                # The supervisor only boots the pinned image unless this is
+                # set; the launcher just computed the real hash above, so
+                # set it here instead of requiring a manual shell export.
+                os.environ["PROTOPANDAEMU_EXTRA_FIRMWARE_SHA256"] = emu_hash
             destination = self._profile_destination()
             _write_json(destination, profile)
             profile_hash = supervisor.canonical_hash(profile)

@@ -8,6 +8,7 @@ dump landing mid-write in the log tail must not raise inside the refresh
 loop, and nothing in refresh() may prevent it from rescheduling itself.
 """
 import json
+import os
 import sys
 import tempfile
 import tkinter as tk
@@ -135,6 +136,54 @@ class RefreshRescheduleTests(unittest.TestCase):
         self.assertIsNotNone(app._after_id)
         self.assertNotEqual(app._after_id, before)
         self.assertIn("Erro no preview", app.status_var.get())
+
+
+class AutoSelectsEmuFirmwareTests(unittest.TestCase):
+    """create_profile() must pick up a built emu firmware automatically
+    (no PROTOPANDAEMU_EMU_FIRMWARE env var) and set the hash allowlist env
+    var the supervisor needs to accept it, so the common "run my own
+    firmware as-is" workflow needs zero manual shell exports."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+        self._saved_emu_firmware = launcher.EMU_FIRMWARE
+        self._saved_env = os.environ.pop("PROTOPANDAEMU_EXTRA_FIRMWARE_SHA256", None)
+        os.environ.pop("PROTOPANDAEMU_EMU_FIRMWARE", None)
+
+    def tearDown(self):
+        self.root.destroy()
+        launcher.EMU_FIRMWARE = self._saved_emu_firmware
+        if self._saved_env is None:
+            os.environ.pop("PROTOPANDAEMU_EXTRA_FIRMWARE_SHA256", None)
+        else:
+            os.environ["PROTOPANDAEMU_EXTRA_FIRMWARE_SHA256"] = self._saved_env
+
+    def test_create_profile_uses_emu_firmware_when_present_on_disk(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fake_firmware = Path(directory) / "merged_flash.bin"
+            fake_firmware.write_bytes(b"\x00" * 64)
+            launcher.EMU_FIRMWARE = fake_firmware
+
+            hostdir = Path(directory) / "host"
+            hostdir.mkdir()
+            (hostdir / "animation.json").write_text(json.dumps({"frames": []}), encoding="utf-8")
+
+            app = launcher.LauncherApp(self.root)
+            self.root.after_cancel(app._after_id)
+            app.set_hostdir(hostdir)
+
+            profile_path = app.create_profile()
+
+            self.assertIsNotNone(profile_path)
+            profile = json.loads(profile_path.read_text(encoding="utf-8"))
+            expected_hash = launcher.supervisor._stable_sha256(fake_firmware, "firmware_image")
+            self.assertEqual(profile["firmware_image"], str(fake_firmware))
+            self.assertEqual(profile["firmware_sha256"], expected_hash)
+            self.assertEqual(os.environ.get("PROTOPANDAEMU_EXTRA_FIRMWARE_SHA256"), expected_hash)
 
 
 if __name__ == "__main__":
