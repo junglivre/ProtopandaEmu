@@ -19,17 +19,21 @@ O Protopanda Emulator está sendo construído para testar animações, conferir 
 
 ## Estado atual
 
-**O launcher desktop mínimo do M5 está implementado; a fronteira de renderização restante é o gap de VFS do HUB75 documentado no M4.**
+**O launcher desktop mínimo do M5 está implementado. A race de VFS/FatFs
+que bloqueava conteúdo real do HUB75 foi identificada e corrigida no
+nível do modelo QEMU; o comparador formal de quadro-padrão por metade
+(`prove-m4.py`) nunca foi construído, então o gate de aceitação do próprio
+Rock 3/M4 segue aberto.**
 
 | Componente | Estado |
 | --- | --- |
-| Build do firmware | Versão Proto-panda v3.4.0 fixada e verificação dos artefatos. |
+| Build do firmware | Versão Proto-panda v3.4.0 fixada e verificação dos artefatos. Uma variante `-DPROTOPANDAEMU_EMU=1` também compila a partir do fork de firmware do próprio usuário, como está (`scripts/build-firmware-emu.sh`), isolada inteiramente atrás dessa flag. |
 | Execução sem interface gráfica | Validação de perfil, UART ao vivo, relatórios de recursos e sessões com tempo limite. |
 | Persistência | Flash e SD privado preservados entre parada limpa e reinício. |
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
-| HUB75 | Decodificador corrigido e verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); geometria consistente com o encadeamento real de painéis. Nenhum quadro colorido/animado capturado ainda — bloqueado por um gap de VFS do Lua não relacionado, ver `ISSUES.md`. |
-| Launcher desktop | Launcher Tkinter com controles independentes de fiação esquerda/direita, sessões reais via hostdir, prévias do backend e diagnósticos ao vivo. |
+| HUB75 | Decodificador corrigido e verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais). A race de VFS que parava o Lua antes de qualquer renderização (`backend/qemu/patches/0008-esp32s3-dwc-sdmmc-register-state.patch`) está corrigida; conteúdo animado real já é capturado (`artifacts/mvp/hub75-real-content-proof/`). O comparador formal de quadro-padrão com seis permutações (`prove-m4.py`, PLAN.md Rock 3) nunca foi implementado. |
+| Launcher desktop | Launcher Tkinter com controles independentes de fiação esquerda/direita, sessões reais via hostdir, prévias do backend, diagnósticos ao vivo e botões de controle virtual por infravermelho. Detecta automaticamente um build de firmware emu do próprio usuário quando presente (sem variáveis de ambiente). |
 
 A execução usa um fork experimental do [QEMU da Espressif](https://github.com/espressif/qemu), com patches em [`backend/qemu/`](backend/qemu/). Os testes dos backends originais ainda encontram bloqueios de boot. Resultados do fork modificado não significam suporte no QEMU original.
 
@@ -106,10 +110,26 @@ Isso prepara uma pasta real, inicia o firmware, confirma que a própria leitura/
 O launcher local usa a mesma API do supervisor em processo que o runner sem interface gráfica. Ele grava os campos reais por quadro `flip_left`, `flip_right`, `color_scheme_left` e `color_scheme_right` no `animation.json` da pasta escolhida, e então inicia e para a sessão real do QEMU experimental.
 
 ```bash
-python3 -m protopandaemu.launcher --hostdir /caminho/para/seus/dados-protopanda --timeout 30
+python3 -m protopandaemu.launcher --hostdir /caminho/para/seus/dados-protopanda
 ```
 
-A prévia lê as últimas linhas `GDDRAM_DUMP` e `FRAME_DUMP` do log de stderr do relatório da sessão. O M4 atualmente só captura o estado real `clearScreen()` do HUB75 (todo preto); o launcher rotula esse estado e não inventa conteúdo colorido. **Este backend não tem modelo de controlador BLE**: um cartão SD real com `keybinds.json` em `input.mode: "BLE"` entra direto em loop de crash/reinício (confirmado; ver `ISSUES.md`) — o launcher avisa antes de iniciar se detectar isso, e a solução é trocar o `input.mode` desse arquivo para `"none"` ou `"infrared"` para testar no emulador. Um ambiente desktop local é necessário. Em um ambiente Linux sem interface gráfica, com o Xvfb já extraído no repositório, suba um display X real primeiro e rode o mesmo comando com `DISPLAY` definido:
+O `--timeout` padrão é 600s: o primeiro boot de uma pasta real compõe o
+`frames.bulk` do firmware no FFat (de segundos a ~100s dependendo da
+quantidade de assets) antes de seguir o progresso normal do boot via
+`--hostdir`; um timeout menor mata a sessão no meio da composição e deixa
+um arquivo de bulk parcial para o próximo boot. A composição só acontece
+uma vez por arquivo de estado de flash.
+
+A prévia lê as últimas linhas `GDDRAM_DUMP` e `FRAME_DUMP` do log de
+stderr do relatório da sessão. **Este backend não tem modelo de rádio
+BLE**: um cartão SD real com `keybinds.json` em `input.mode: "BLE"` entra
+direto em loop de crash/reinício contra o firmware fixado padrão
+(confirmado; ver `ISSUES.md`) — o launcher avisa antes de iniciar se
+detectar isso, e a solução é trocar o `input.mode` desse arquivo para
+`"infrared"` com um `infrared_gpio` numérico. Um ambiente desktop local é
+necessário. Em um ambiente Linux sem interface gráfica, com o Xvfb já
+extraído no repositório, suba um display X real primeiro e rode o mesmo
+comando com `DISPLAY` definido:
 
 ```bash
 .work/mvp-display/root/usr/bin/Xvfb :99 -screen 0 1400x1000x24 -nolisten tcp &
@@ -121,6 +141,34 @@ A prova automatizada do M5 aciona os callbacks reais dos widgets Tk e uma sessã
 ```bash
 DISPLAY=:99 python3 scripts/prove-m5-launcher.py
 ```
+
+### Rode seu próprio fork de firmware e cartão SD como estão
+
+`scripts/build-firmware-emu.sh` compila o firmware do launcher a partir de
+uma árvore de firmware local (padrão `PROTO_PANDA_FIRMWARE_SRC`, pode
+trocar por essa variável de ambiente) com `-DPROTOPANDAEMU_EMU=1`,
+aplicando `backend/firmware-emu/patches/` a uma cópia descartável — nunca
+na sua árvore de origem. Esses patches só tocam no que este backend não
+consegue suportar de outra forma: o pino compartilhado de IR/SDMMC usa
+`gpio_config()` em vez de `pinMode()` para não desconectar o barramento
+SD, `BleManager::begin()` roda sem rádio para que chamadas de
+`onEnable()` de drivers que exigem BLE passem sob `input.mode:
+"infrared"`, um comando de console (`IR:<addr>:<cmd>\n` via UART) injeta
+pressionamentos de IR virtuais, e a saída da fita de LED é stubada (o
+HUB75 não é afetado). Nenhuma configuração de firmware, pino ou dado do SD
+é editado para isso funcionar — o perfil da placa e as atribuições de
+GPIO continuam reais.
+
+```bash
+PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/caminho/para/seu/fork \
+  bash scripts/build-firmware-emu.sh
+python3 -m protopandaemu.launcher --hostdir /caminho/para/seus/dados-protopanda
+```
+
+O launcher detecta automaticamente
+`artifacts/build-emu/release/merged_flash.bin` quando presente — sem
+variáveis de ambiente. O painel "Controles virtuais" envia comandos de IR
+reais do seu `keybinds.json` pelo UART da sessão enquanto ela roda.
 
 ### Verifique a saída do OLED
 
@@ -152,7 +200,9 @@ Um teste pode registrar um bloqueio ou `NOT_EXECUTED`; nenhum desses resultados 
 
 ## Próximas etapas
 
-1. Corrigir a race de VFS do `models.json` que bloqueia um quadro HUB75 colorido/animado real (`ISSUES.md`).
+1. Construir o comparador formal de quadro-padrão por metade do Rock
+   3/M4 (`prove-m4.py`, PLAN.md) — a race de VFS que o bloqueava está
+   corrigida, mas essa prova em si nunca foi implementada (`ISSUES.md`).
 2. Marcos de modo de edição BLE/Wi-Fi, web e endurecimento de release (fora deste ciclo, ver `docs/protopandaemu-full-spec.md`).
 
 Consulte o [`CHANGELOG.md`](CHANGELOG.md) para ver as alterações implementadas.

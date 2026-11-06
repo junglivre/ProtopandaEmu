@@ -19,17 +19,20 @@ Protopanda Emulator is being built for testing animations, checking panel wiring
 
 ## Current status
 
-**M5 minimum desktop launcher is implemented; the remaining rendering boundary is the documented M4 HUB75 VFS gap.**
+**M5 minimum desktop launcher is implemented. The VFS/FatFs race that
+blocked real HUB75 content is root-caused and fixed at the QEMU model
+level; the formal per-half-wiring golden-frame comparator (`prove-m4.py`)
+was never built, so Rock 3/M4's own acceptance gate is still open.**
 
 | Component | Status |
 | --- | --- |
-| Firmware build | Pinned Proto-panda v3.4.0 build and artifact verification. |
+| Firmware build | Pinned Proto-panda v3.4.0 build and artifact verification. An `-DPROTOPANDAEMU_EMU=1` variant also builds from a user's own firmware fork as-is (`scripts/build-firmware-emu.sh`), gated entirely behind that flag. |
 | Headless runner | Profile validation, live UART, resource reports and bounded sessions. |
 | Persistent state | Flash and private SD state survive a clean stop and restart. |
 | Folder-backed storage | A chosen folder becomes the firmware's SD card: safe staging, crash-recoverable commit, backups and conflict retention. |
 | OLED | Real SSD1306 I2C protocol, real 128x64 GDDRAM; byte-exact against an independently derived oracle. |
-| HUB75 | Decoder corrected and verified against real GDMA traffic (continuous streaming, real multi-plane descriptors); geometry self-consistent with the real panel chain. No colored/animated frame captured yet — blocked on an unrelated Lua VFS gap, see `ISSUES.md`. |
-| Desktop launcher | Tkinter launcher with independent left/right wiring controls, real hostdir sessions, backend previews and live diagnostics. |
+| HUB75 | Decoder corrected and verified against real GDMA traffic (continuous streaming, real multi-plane descriptors). The VFS race that stopped Lua before any render (`backend/qemu/patches/0008-esp32s3-dwc-sdmmc-register-state.patch`) is fixed; real animated content is now captured (`artifacts/mvp/hub75-real-content-proof/`). The formal six-permutation golden-frame comparator (`prove-m4.py`, PLAN.md Rock 3) was never implemented. |
+| Desktop launcher | Tkinter launcher with independent left/right wiring controls, real hostdir sessions, backend previews, live diagnostics, and virtual IR controller buttons. Auto-detects a user's own emu firmware build when present (no env vars needed). |
 
 The runner uses an experimental [Espressif QEMU](https://github.com/espressif/qemu) fork with patches in [`backend/qemu/`](backend/qemu/). Stock backend probes still have boot blockers. Results from the patched fork do not imply support in stock QEMU.
 
@@ -109,20 +112,25 @@ runner. It writes the upstream per-frame `flip_left`, `flip_right`,
 `animation.json`, then starts and stops the real experimental QEMU session.
 
 ```bash
-python3 -m protopandaemu.launcher --hostdir /path/to/your/protopanda-data --timeout 30
+python3 -m protopandaemu.launcher --hostdir /path/to/your/protopanda-data
 ```
 
+The default `--timeout` is 600s: a real folder's first boot composes the
+firmware's `frames.bulk` on FFat (seconds to ~100s depending on asset
+count) before `--hostdir`'s normal boot progress continues; a shorter
+timeout kills the session mid-compose and leaves a partial bulk file for
+the next boot. The compose only happens once per flash-state file.
+
 The preview reads the latest `GDDRAM_DUMP` and `FRAME_DUMP` lines from the
-session report's stderr log. M4 currently captures only the real all-black
-HUB75 `clearScreen()` state; the launcher labels that state and does not
-invent colored content. **This backend has no BLE controller model**: a real
-SD card's `keybinds.json` with `input.mode: "BLE"` boots straight into a
-crash/reboot loop (confirmed; see `ISSUES.md`) — the launcher warns before
-starting if it detects this, and the workaround is switching that file's
-`input.mode` to `"none"` or `"infrared"` for emulator testing. A local
-desktop is required. In a headless Linux
+session report's stderr log. **This backend has no BLE radio model**: a
+real SD card's `keybinds.json` with `input.mode: "BLE"` boots straight into
+a crash/reboot loop against the stock pinned firmware (confirmed; see
+`ISSUES.md`) — the launcher warns before starting if it detects this, and
+the workaround is switching that file's `input.mode` to `"infrared"` with
+a numeric `infrared_gpio`. A local desktop is required. In a headless Linux
 environment with the repository's extracted Xvfb, start a real X display first
 and run the same command with `DISPLAY` set:
+
 
 ```bash
 .work/mvp-display/root/usr/bin/Xvfb :99 -screen 0 1400x1000x24 -nolisten tcp &
@@ -135,6 +143,32 @@ supervisor session:
 ```bash
 DISPLAY=:99 python3 scripts/prove-m5-launcher.py
 ```
+
+### Run your own firmware fork and SD card as-is
+
+`scripts/build-firmware-emu.sh` builds the launcher's firmware from a
+local firmware source tree (default `PROTO_PANDA_FIRMWARE_SRC`, override
+via that env var) with `-DPROTOPANDAEMU_EMU=1`, applying
+`backend/firmware-emu/patches/` to a disposable copy — never to your
+source tree. Those patches only touch what this backend cannot otherwise
+support: the shared IR/SDMMC pin uses `gpio_config()` instead of
+`pinMode()` so claiming it doesn't detach the SD bus, `BleManager::begin()`
+runs with no radio so BLE-gated driver `onEnable()` calls pass under
+`input.mode: "infrared"`, a console command (`IR:<addr>:<cmd>\n` over
+UART) injects virtual IR button presses, and LED strip output is stubbed
+(HUB75 is unaffected). No firmware config, pin assignment, or SD data is
+edited to make this work — board profile and GPIO assignments stay real.
+
+```bash
+PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/path/to/your/fork \
+  bash scripts/build-firmware-emu.sh
+python3 -m protopandaemu.launcher --hostdir /path/to/your/protopanda-data
+```
+
+The launcher automatically picks up
+`artifacts/build-emu/release/merged_flash.bin` when present — no env vars
+needed. The "Controles virtuais" panel sends real IR commands from your
+`keybinds.json` over the session's UART while it runs.
 
 ### Verify the OLED output
 
@@ -166,8 +200,9 @@ A probe can report a blocker or `NOT_EXECUTED`; neither means the firmware passe
 
 ## Next milestones
 
-1. Fix the `models.json` VFS race blocking a real colored/animated HUB75
-   frame (`ISSUES.md`).
+1. Build the formal Rock 3/M4 per-half-wiring golden-frame comparator
+   (`prove-m4.py`, PLAN.md) — the VFS race that blocked it is fixed, but
+   that proof itself was never implemented (`ISSUES.md`).
 2. BLE/Wi-Fi edit-mode, web, and release hardening milestones (out of this
    cycle, see `docs/protopandaemu-full-spec.md`).
 
