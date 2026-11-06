@@ -241,9 +241,10 @@ class FakeSerialHandle:
     """Minimal stand-in for supervisor.SessionHandle: a running session
     that records every line written to the console."""
 
-    def __init__(self, accept: bool = True):
+    def __init__(self, accept: bool = True, marker_set: bool = True):
         self.accept = accept
         self.sent: list[str] = []
+        self.marker_set = marker_set
 
     def wait(self, timeout: float | None = None) -> bool:
         return False  # still running
@@ -252,6 +253,12 @@ class FakeSerialHandle:
         if self.accept:
             self.sent.append(text)
         return self.accept
+
+    def wait_for_marker(self, marker: str, timeout: float) -> bool:
+        return self.marker_set
+
+    def session_report(self) -> dict:
+        return {"resources": {}, "stderr_log_path": None, "uart_log_path": None, "exit_reason": None}
 
 
 class BoopConfigLoadTests(unittest.TestCase):
@@ -346,6 +353,55 @@ class ToggleBoopSendsGpioOverrideTests(unittest.TestCase):
         app._toggle_boop()
         self.assertEqual(app.handle.sent, [])
         self.assertFalse(app.boop_near)
+
+
+class DeferredBoopDefaultOverrideTests(unittest.TestCase):
+    """Sending the boop-far override right when the session starts races
+    the guest: the console parser only reads Serial once loop() is
+    running, and bytes arriving during the ROM bootloader/setup() window
+    can be lost (this previously left boop reading as permanently
+    triggered from boot, since the real unconnected pin happened to read
+    the same level as the configured gpio_state). refresh() must defer
+    the send until the "vfs_init" boot marker confirms the guest loop is
+    actually consuming console input, and must send it exactly once."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_waits_for_vfs_init_marker_before_sending(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.boop_gpio = 2
+        app.handle = FakeSerialHandle(marker_set=False)
+        app._boop_default_sent = False
+
+        app.refresh()
+        self.root.after_cancel(app._after_id)
+        self.assertEqual(app.handle.sent, [])
+        self.assertFalse(app._boop_default_sent)
+
+    def test_sends_once_marker_is_set_and_does_not_resend(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.boop_gpio = 2
+        app.handle = FakeSerialHandle(marker_set=True)
+        app._boop_default_sent = False
+
+        app.refresh()
+        self.root.after_cancel(app._after_id)
+        self.assertEqual(app.handle.sent, ["GPIO:2:0\n"])
+        self.assertTrue(app._boop_default_sent)
+
+        app.refresh()
+        self.root.after_cancel(app._after_id)
+        self.assertEqual(app.handle.sent, ["GPIO:2:0\n"])
 
 
 class DrawHub75SplitsLeftRightHalvesTests(unittest.TestCase):

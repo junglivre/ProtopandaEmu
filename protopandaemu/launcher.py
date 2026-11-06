@@ -197,6 +197,7 @@ class LauncherApp:
         self._hub75_right_photo: tk.PhotoImage | None = None
         self.boop_gpio: int | None = None
         self.boop_near = False
+        self._boop_default_sent = True  # no session yet, nothing pending
 
         self.hostdir_var = tk.StringVar(value="No folder selected")
         self.firmware_var = tk.StringVar(value="Auto-detected")
@@ -713,6 +714,13 @@ class LauncherApp:
         self.session_var.set(f"Session: {report['session_id']}\nProfile hash: {report['profile_hash']}")
         self.status_var.set("Session started. Waiting for backend dumps.")
         self.boop_near = False
+        # Sending the override now would race the guest: the console
+        # parser only reads Serial once loop() is running, and bytes
+        # arriving during the ROM bootloader/setup() window can be lost.
+        # refresh() sends it once the "vfs_init" marker (a generic,
+        # SD-card-content-independent boot marker) confirms the guest
+        # loop is actually consuming console input.
+        self._boop_default_sent = self.boop_gpio is None
         if hasattr(self, "boop_button"):
             self.boop_button.configure(style="TButton")
         self.start_button.configure(state="disabled")
@@ -743,6 +751,9 @@ class LauncherApp:
         self._schedule_refresh()
         if self.handle is None:
             return
+        if not self._boop_default_sent and self.handle.wait_for_marker("vfs_init", timeout=0):
+            if self.handle.send_serial_input(f"GPIO:{self.boop_gpio}:0\n"):
+                self._boop_default_sent = True
         try:
             report = self.handle.session_report()
             self.last_report = report
