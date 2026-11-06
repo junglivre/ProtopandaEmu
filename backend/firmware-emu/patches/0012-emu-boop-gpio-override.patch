@@ -1,77 +1,46 @@
-diff --git a/lualib/boop.lua b/lualib/boop.lua
-index 9097507..9d0b07e 100644
---- a/lualib/boop.lua
-+++ b/lualib/boop.lua
-@@ -11,6 +11,18 @@ local SetExpression = expressions.SetExpression
- local IsFrameFromAnimation = expressions.IsFrameFromAnimation
- local GetCurrentExpressionId = expressions.GetCurrentExpressionId
- 
-+-- Emulator-only: emuDigitalReadOverride(pin) returns -1 when the console
-+-- hasn't injected a value for this pin (fall back to the real hardware
-+-- read), or 0/1 for a forced level set with "GPIO:<pin>:<0|1>".
-+local function digitalReadEmu(pin)
-+    if emuDigitalReadOverride then
-+        local override = emuDigitalReadOverride(pin)
-+        if override >= 0 then
-+            return override
-+        end
-+    end
-+    return digitalRead(pin)
-+end
- local _M = {
-     boopIsOn = false,
-     config = {},   
-@@ -513,7 +525,7 @@ function _M.isBoopedCheck(dt)
-         end
-         return false, isSensorPressed
-     elseif _M.mode == "gpio" then 
--        isSensorPressed = digitalRead(_M.gpio) == _M.gpio_state
-+        isSensorPressed = digitalReadEmu(_M.gpio) == _M.gpio_state
-         if not _M.isBooped then
-             if isSensorPressed then  
-                 _M.boopTimer = _M.boopTimer+dt  
-@@ -530,7 +542,7 @@ function _M.isBoopedCheck(dt)
-                 digitalWrite(_M.power_gpio, LOW)
-             end
-             _M.gpioTriggeredOnDuration = _M.gpioTriggeredOnDuration + dt
--            if digitalRead(_M.gpio) ~= _M.gpio_state then  
-+            if digitalReadEmu(_M.gpio) ~= _M.gpio_state then  
-                 _M.boopTimer = _M.boopTimer+dt  
-             else
-                 _M.boopTimer = 0
 diff --git a/src/lua/luainterface.cpp b/src/lua/luainterface.cpp
-index 13ac66a..18889da 100644
+index 13ac66a..fe7dee4 100644
 --- a/src/lua/luainterface.cpp
 +++ b/src/lua/luainterface.cpp
-@@ -191,6 +191,16 @@ bool hasLidar()
+@@ -191,6 +191,24 @@ bool hasLidar()
    return Devices::HasLidar();
  }
  
 +#ifdef PROTOPANDAEMU_EMU
-+/* Defined in main.cpp: -1 = no override (use real hardware read), 0/1 =
-+ * forced level, set over the console with "GPIO:<pin>:<0|1>". */
++/* Defined in main.cpp: -1 = no override (use the real hardware read),
++ * 0/1 = forced level, set over the console with "GPIO:<pin>:<0|1>". This
++ * wraps the real digitalRead() -- not a separate Lua-visible function --
++ * so every caller sees the override transparently, including Lua scripts
++ * loaded from the SD card (boop.lua's trigger_mode="gpio" check among
++ * them), none of which this project's source controls. */
 +int emuGetGpioOverride(int pin);
-+int emuDigitalReadOverride(int pin)
++int emuDigitalRead(uint8_t pin)
 +{
-+  return emuGetGpioOverride(pin);
++  int override = emuGetGpioOverride(pin);
++  if (override >= 0) {
++    return override;
++  }
++  return digitalRead(pin);
 +}
 +#endif
 +
  
  
  static int dumpStackToSerial(lua_State *L)
-@@ -634,6 +644,9 @@ void LuaInterface::RegisterMethods()
-   //LIDAR
-   m_lua->FuncRegister("hasLidar", hasLidar);
-   m_lua->FuncRegister("readLidar", readLidar);
+@@ -717,7 +735,11 @@ void LuaInterface::RegisterMethods()
+   m_lua->FuncRegister("millis", millis);
+   m_lua->FuncRegister("delay", delay);
+   m_lua->FuncRegister("digitalWrite", digitalWrite);
 +  #ifdef PROTOPANDAEMU_EMU
-+  m_lua->FuncRegister("emuDigitalReadOverride", emuDigitalReadOverride);
++  m_lua->FuncRegister("digitalRead", emuDigitalRead);
++  #else
+   m_lua->FuncRegister("digitalRead", digitalRead);
 +  #endif
-   //Internal sensor
-   m_lua->FuncRegister("getInternalButtonStatus", getInternalButtonStatus); 
-   //Panels
+   m_lua->FuncRegister("vTaskDelay", vTaskDelay);
+   m_lua->FuncRegister("analogRead", analogRead);
+   m_lua->FuncRegister("pinMode", pinMode);
 diff --git a/src/main.cpp b/src/main.cpp
-index 1b0b3a6..e51ab59 100644
+index 1b0b3a6..1bb9f07 100644
 --- a/src/main.cpp
 +++ b/src/main.cpp
 @@ -28,6 +28,32 @@
@@ -79,11 +48,11 @@ index 1b0b3a6..e51ab59 100644
  #include "drawing/modelanimation/keyframeplayer.hpp"
  
 +#ifdef PROTOPANDAEMU_EMU
-+/* Simulated GPIO digital-input overrides: any firmware code that reads a
-+ * pin through emuDigitalReadOverride() (see boop.lua) gets this value
-+ * instead of the real (floating, unconnected) emulated pin whenever the
-+ * host has injected one over the console with "GPIO:<pin>:<0|1>". -1
-+ * means "no override, use the real hardware read". */
++/* Simulated GPIO digital-input overrides: digitalRead() (see
++ * luainterface.cpp's Lua binding) returns this instead of the real
++ * (floating, unconnected) emulated pin whenever the host has injected one
++ * over the console with "GPIO:<pin>:<0|1>". -1 means "no override, use
++ * the real hardware read". */
 +static int8_t g_emuGpioOverride[49];
 +static bool g_emuGpioOverrideInit = false;
 +int emuGetGpioOverride(int pin) {
@@ -107,7 +76,7 @@ index 1b0b3a6..e51ab59 100644
  
  LedStrip g_leds;
  FrameRepository g_frameRepo;
-@@ -230,7 +256,10 @@ void loop() {
+@@ -230,7 +256,11 @@ void loop() {
  #ifdef PROTOPANDAEMU_EMU
    /* Virtual controller channel: the host program writes "IR:<addr>:<cmd>"
     * lines to the console (QEMU serial stdin) and they are fed into the real
@@ -115,11 +84,12 @@ index 1b0b3a6..e51ab59 100644
 +   * IR command queue, so keybinds and drivers handle them unchanged.
 +   * "GPIO:<pin>:<0|1>" overrides a simulated digital input pin (e.g. the
 +   * boop proximity sensor's gpio in trigger_mode="gpio") -- see
-+   * emuDigitalReadOverride() and its one caller in boop.lua. */
++   * luainterface.cpp's digitalRead binding, which checks this override
++   * before falling back to the real hardware read. */
    static String emuInputLine;
    while (Serial.available()){
      int c = Serial.read();
-@@ -244,6 +273,14 @@ void loop() {
+@@ -244,6 +274,14 @@ void loop() {
          }
          g_InfraRed.injectCommand((uint16_t)emuAddr, (uint16_t)emuCmd);
          Serial.printf("[EMU] injected IR %04X:%02X\n", (uint16_t)emuAddr, (uint16_t)emuCmd);
