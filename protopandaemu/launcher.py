@@ -488,9 +488,9 @@ class LauncherApp:
                     self.oled_var.set(f"OLED: seq={oled['seq']} {oled['width']}x{oled['height']}, {oled['bytes']} bytes")
                 if hub:
                     self._draw_hub75(hub)
-                    black = not any(hub["data"])
+                    note = " (preto)" if not any(hub["data"]) else ""
                     self.hub75_var.set(f"HUB75: seq={hub['seq']} {hub['width']}x{hub['height']} "
-                                       f"({hub['bytes']} bytes, {hub['descriptors']} descriptors)")
+                                       f"({hub['bytes']} bytes, {hub['descriptors']} descriptors){note}")
             uart = report.get("uart_log_path")
             if uart:
                 self._set_uart_tail(pathlib.Path(uart))
