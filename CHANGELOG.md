@@ -152,3 +152,11 @@
   2ms (`HUB75_REFRESH_INTERVAL_NS`), so the guest can produce fresher
   frames for anything polling the FRAME_DUMP (the launcher preview,
   but also any other consumer of that channel).
+- Emulate the proximity ("boop") sensor for SD cards configured with
+  `misc.json`'s `boop.trigger_mode: "gpio"`: a new firmware-emu patch
+  (`0012-emu-boop-gpio-override.patch`) adds an `emuDigitalReadOverride()`
+  native binding plus a `digitalReadEmu()` wrapper around `boop.lua`'s two
+  `digitalRead(_M.gpio)` call sites, so a `GPIO:<pin>:<0|1>` line on the
+  session console (the same channel the IR virtual controller already
+  uses) substitutes for the real, unconnected emulated pin only when one
+  has been injected. Lidar-mode SD cards have no digital pin to override.
