@@ -172,9 +172,13 @@
   but also any other consumer of that channel).
 - Emulate the proximity ("boop") sensor for SD cards configured with
   `misc.json`'s `boop.trigger_mode: "gpio"`: a new firmware-emu patch
-  (`0012-emu-boop-gpio-override.patch`) adds an `emuDigitalReadOverride()`
-  native binding plus a `digitalReadEmu()` wrapper around `boop.lua`'s two
-  `digitalRead(_M.gpio)` call sites, so a `GPIO:<pin>:<0|1>` line on the
-  session console (the same channel the IR virtual controller already
-  uses) substitutes for the real, unconnected emulated pin only when one
-  has been injected. Lidar-mode SD cards have no digital pin to override.
+  (`0012-emu-boop-gpio-override.patch`) rewires the Lua-visible
+  `digitalRead` binding itself (not `boop.lua`, which this project's
+  source doesn't control -- the firmware mounts the SD card as the Lua
+  root, so `/lualib/boop.lua` always loads the SD card's own copy, never
+  a patched one). A `GPIO:<pin>:<0|1>` line on the session console (the
+  same channel the IR virtual controller already uses) overrides a pin's
+  read for every caller transparently, real hardware or not, until
+  cleared. Lidar-mode SD cards have no digital pin to override. Verified
+  against a real boot on the user's own SD card: the console echoed both
+  a near (1) and a far (0) override taking effect for the configured pin.
