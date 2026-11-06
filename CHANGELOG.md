@@ -126,3 +126,15 @@
 - Clean up GUI text: drop "M5"/AI-slop phrasing from labels and warnings;
   "Proto-panda" is reserved for the upstream repo URL, the product name
   in the UI is "Protopanda".
+- Fix a HUB75 decoder bug that doubled decoded frame height: the ring's
+  one fixed sentinel descriptor per lap (row address reads as the
+  all-ones 5-bit `HUB75_ADDR_MASK`) was counted as real scan content,
+  doubling the computed scan depth and rendering real content as
+  duplicated/mirrored quadrants on dense, asymmetric frames. Now detected
+  structurally (the lone bucket outside the dense `0..N-1` address run)
+  and excluded from both geometry and painting. Evidence:
+  `artifacts/mvp/hub75-geometry-fix-proof/`.
+- Restack the launcher's OLED/HUB75 preview vertically instead of side by
+  side: HUB75's real panel geometry (128x32, 4:1) and OLED's (128x64, 2:1)
+  both wasted horizontal space split into two columns, capping pixel zoom
+  at 3x. Full-width stacked panels now render at 6x.

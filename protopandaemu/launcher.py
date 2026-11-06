@@ -199,7 +199,7 @@ class LauncherApp:
 
     def _build_widgets(self) -> None:
         self.root.title("Protopanda Emulator")
-        self.root.minsize(1120, 760)
+        self.root.minsize(1120, 980)
         self.root.columnconfigure(1, weight=1)
         self.root.rowconfigure(0, weight=1)
 
@@ -280,20 +280,24 @@ class LauncherApp:
         displays = ttk.Frame(preview)
         displays.grid(row=2, column=0, sticky="nsew")
         displays.columnconfigure(0, weight=1)
-        displays.columnconfigure(1, weight=1)
-        displays.rowconfigure(0, weight=1)
+        displays.rowconfigure(0, weight=2)
+        displays.rowconfigure(1, weight=1)
+        # Stacked, not side-by-side: HUB75's real panel geometry is 128x32
+        # (4:1, wide and short) and OLED is 128x64 (2:1) -- splitting the
+        # column in half horizontally wasted width on both and capped the
+        # pixel zoom low. Full-width stacking lets each scale up sharper.
         oled_frame = ttk.LabelFrame(displays, text="OLED — GDDRAM 1bpp", padding=8)
-        oled_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        oled_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 8))
         hub_frame = ttk.LabelFrame(displays, text="HUB75 — RGB888", padding=8)
-        hub_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        hub_frame.grid(row=1, column=0, sticky="nsew")
         self.oled_rotate_check = ttk.Checkbutton(
             oled_frame, text="Girar 180° (só visual)",
             variable=self.oled_rotate_var, command=self._redraw_oled_from_cache)
         self.oled_rotate_check.pack(anchor="w")
-        self.oled_canvas = tk.Canvas(oled_frame, width=384, height=192, bg="#202020",
+        self.oled_canvas = tk.Canvas(oled_frame, width=768, height=384, bg="#202020",
                                      highlightthickness=1, highlightbackground="#808080")
         self.oled_canvas.pack(fill="both", expand=True)
-        self.hub_canvas = tk.Canvas(hub_frame, width=384, height=192, bg="#202020",
+        self.hub_canvas = tk.Canvas(hub_frame, width=768, height=192, bg="#202020",
                                     highlightthickness=1, highlightbackground="#808080")
         self.hub_canvas.pack(fill="both", expand=True)
 

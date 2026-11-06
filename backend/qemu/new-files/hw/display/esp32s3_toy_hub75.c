@@ -122,6 +122,7 @@ static uint16_t hub75_word_at_ptr(const uint8_t *base, uint32_t col)
     return (uint16_t)base[offset] | ((uint16_t)base[offset + 1] << 8);
 }
 
+
 static void hub75_decode_and_emit(Esp32s3ToyHub75State *s, Hub75WalkContext *ctx)
 {
     guint num_rows = g_hash_table_size(ctx->rows);
@@ -129,17 +130,47 @@ static void hub75_decode_and_emit(Esp32s3ToyHub75State *s, Hub75WalkContext *ctx
         return;
     }
 
-    uint32_t rows_per_frame = 0;
+    /* The real pinned ESP32-HUB75-MatrixPanel-I2S-DMA ring carries one
+     * fixed descriptor every single lap whose embedded row address reads
+     * as HUB75_ADDR_MASK, the all-ones 5-bit sentinel value -- confirmed
+     * via trace against a real 1/16-scan 32-row panel: EVERY lap, across
+     * two independent sessions (28 frames total), shows row_addr 0..15
+     * densely populated with real per-row descriptor data, plus exactly
+     * one extra bucket at row_addr=31 (=HUB75_ADDR_MASK), same address
+     * every time. Its descriptor's own byte volume is not a reliable
+     * discriminator (a real sparsely-updated row can carry less payload
+     * than this sentinel), so detect it structurally instead: it is the
+     * single bucket sitting at the maximum representable address, outside
+     * the dense 0..N-1 run every real config fills contiguously from zero.
+     * Trusting max(row_addr)+1 for `rows_per_frame` let that one sentinel
+     * double the computed scan depth (16 -> 32), doubling decoded height
+     * and duplicating/misplacing every real row into a spurious second
+     * copy -- the root cause of a quadrant-duplication artifact visible
+     * with dense, asymmetric content (a 64x32 static icon); sparse or
+     * symmetric content hid it. */
     GHashTableIter iter;
     gpointer key, value;
+    uint32_t dense_run = 0; /* largest N such that addresses 0..N-1 are all present */
+    while (g_hash_table_contains(ctx->rows, GUINT_TO_POINTER(dense_run))) {
+        dense_run++;
+    }
+    bool has_sentinel = dense_run > 0 && dense_run <= HUB75_ADDR_MASK &&
+                        g_hash_table_contains(ctx->rows, GUINT_TO_POINTER(HUB75_ADDR_MASK));
+
+    uint32_t rows_per_frame = 0;
     g_hash_table_iter_init(&iter, ctx->rows);
     while (g_hash_table_iter_next(&iter, &key, &value)) {
         uint32_t row_addr = GPOINTER_TO_UINT(key);
+        if (has_sentinel && row_addr == HUB75_ADDR_MASK) {
+            continue; /* sentinel/park descriptor, not real scan content */
+        }
         if (row_addr + 1 > rows_per_frame) {
             rows_per_frame = row_addr + 1;
         }
     }
-
+    if (rows_per_frame == 0) {
+        return;
+    }
     /* The FIRST descriptor configureDMA() links for a row is NOT always a
      * single bit-plane: when a row's full `width*depth*sizeof(uint16_t)`
      * fits in one DMA payload, that one descriptor packs ALL `depth` planes
@@ -171,7 +202,11 @@ static void hub75_decode_and_emit(Esp32s3ToyHub75State *s, Hub75WalkContext *ctx
 
     g_hash_table_iter_init(&iter, ctx->rows);
     while (g_hash_table_iter_next(&iter, &key, &value)) {
+        uint32_t row_addr = GPOINTER_TO_UINT(key);
         Hub75RowBucket *bucket = value;
+        if (row_addr >= rows_per_frame) {
+            continue; /* outlier/sentinel bucket excluded above; never paint it */
+        }
         GPtrArray *logical = g_ptr_array_new(); /* const uint8_t*, not owned */
         bool row_ok = true;
         for (guint i = 0; i < bucket->planes->len && row_ok; i++) {
@@ -202,8 +237,8 @@ static void hub75_decode_and_emit(Esp32s3ToyHub75State *s, Hub75WalkContext *ctx
                 if (word & HUB75_BIT_G2) g2 |= (1u << plane_idx);
                 if (word & HUB75_BIT_B2) b2 |= (1u << plane_idx);
             }
-            uint32_t top_y = bucket->row_addr;
-            uint32_t bottom_y = bucket->row_addr + rows_per_frame;
+            uint32_t top_y = row_addr;
+            uint32_t bottom_y = row_addr + rows_per_frame;
             uint8_t *top_px = frame + (top_y * width + col) * 3;
             top_px[0] = hub75_scale_to_8bit(r1, depth);
             top_px[1] = hub75_scale_to_8bit(g1, depth);
