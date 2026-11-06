@@ -1,2 +1,0 @@
-0x420f10c9: adc_oneshot_ll_get_event at /home/runner/work/esp32-arduino-lib-builder/esp32-arduino-lib-builder/esp-idf/components/hal/esp32s3/include/hal/adc_ll.h:1008
- (inlined by) read_cal_channel at /home/runner/work/esp32-arduino-lib-builder/esp32-arduino-lib-builder/esp-idf/components/hal/adc_hal_common.c:136

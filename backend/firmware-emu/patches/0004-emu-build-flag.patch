@@ -1,0 +1,12 @@
+diff --git a/platformio.ini b/platformio.ini
+index 146ebc7..9d0898e 100644
+--- a/platformio.ini
++++ b/platformio.ini
+@@ -30,6 +30,7 @@ build_flags =
+   -DNO_ADAFRUIT_SSD1306_COLOR_COMPATIBILITY=1
+   -DCORE_DEBUG_LEVEL=0
+   -DCONFIG_NIMBLE_CPP_LOG_LEVEL=0
++  -DPROTOPANDAEMU_EMU=1
+   -Os
+ lib_deps = 
+   mrfaptastic/ESP32 HUB75 LED MATRIX PANEL DMA Display@3.0.12

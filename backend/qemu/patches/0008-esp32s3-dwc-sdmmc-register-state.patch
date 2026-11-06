@@ -1,0 +1,138 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+Subject: [PATCH] ESP32-S3 DWC SDMMC: preserve controller register state
+
+The ESP32-S3 driver read-modifies-writes BMOD and CLOCK, and expects card
+presence/status registers to reflect the attached card. Returning zero for
+those reads turns a later BMOD enable write (0x80) into 0x02, disabling the
+IDMAC before a filesystem read. Keep the small register subset stateful,
+gate the DMA walk on BMOD.ENABLE and skip the walk when the command has no
+data phase (stale BYTCNT from a previous command must not start a
+descriptor walk), and expose the STATUS/CDETECT/WRTPRT bits that the
+card-availability checks rely on.
+
+--- a/hw/sd/dwc_sdmmc.c
++++ b/hw/sd/dwc_sdmmc.c
+@@ -163,6 +163,7 @@
+ REG32(SDMMC_BUFADDRL, 0xa0)
+ REG32(SDMMC_BUFADDRU, 0xa4)
+ REG32(SDMMC_CARDTHRCTL, 0x100)
++REG32(SDMMC_CLOCK, 0x800)
+ REG32(SDMMC_BACK_END_POWER, 0x104)
+ REG32(SDMMC_UHS_REG_EXT, 0x108)
+ REG32(SDMMC_EMMC_DDR_REG, 0x10c)
+@@ -194,6 +195,10 @@
+ #define SDMMC_IDMAC_INTMASK_FBE BIT(2)
+ #define SDMMC_IDMAC_INTMASK_RI  BIT(1)
+ #define SDMMC_IDMAC_INTMASK_TI  BIT(0)
++#define SDMMC_BMOD_SW_RESET     BIT(0)
++#define SDMMC_BMOD_ENABLE       BIT(7)
++#define SDMMC_STATUS_FIFO_EMPTY BIT(2)
++#define SDMMC_STATUS_CARD_PRESENT BIT(9)
+ 
+ 
+ #define SDMMC_DMA_MAX_BUF_LEN 4096
+@@ -344,11 +349,15 @@
+     sdmmc_desc_t desc;
+     hwaddr desc_addr = s->dscaddr;
+     sdmmc_hw_cmd_t hw_cmd = dwc_sdmmc_get_hw_cmd(s);
++    if (!hw_cmd.data_expected) {
++        return;
++    }
+     bool is_write = hw_cmd.rw == 1;
+     uint32_t bytes_done = 0;
+ 
+     if (s->bytcnt == 0 || s->blksiz == 0 ||
+-        !FIELD_EX32(s->ctrl, SDMMC_CTRL, DMAEN)) {
++        !FIELD_EX32(s->ctrl, SDMMC_CTRL, DMAEN) ||
++        !(s->bmod & SDMMC_BMOD_ENABLE)) {
+         DEBUG("%s: nothing to do (bytcnt=%d, blksiz=%d)\n", __func__, s->bytcnt, s->blksiz);
+         return;
+     }
+@@ -417,6 +426,26 @@
+             dwc_sdmmc_update_irq(s);
+             break;
+ 
++        case A_SDMMC_CLKDIV:
++            s->clkdiv = value;
++            break;
++        case A_SDMMC_CLKENA:
++            s->clkena = value;
++            break;
++        case A_SDMMC_TMOUT:
++            s->tmout = value;
++            break;
++        case A_SDMMC_CTYPE:
++            s->ctype = value;
++            break;
++        case A_SDMMC_BMOD:
++            /* SW_RESET is self-clearing; all other bits persist. */
++            s->bmod = value & ~SDMMC_BMOD_SW_RESET;
++            break;
++        case A_SDMMC_CLOCK:
++            s->clock = value;
++            break;
++
+         case A_SDMMC_CLKSRC:
+             s->clksrc = value;
+             break;
+@@ -488,8 +517,29 @@
+     switch (offset) {
+         case A_SDMMC_CTRL:
+             return s->ctrl;
++        case A_SDMMC_PWREN:
++            return s->pwren;
++        case A_SDMMC_CLKDIV:
++            return s->clkdiv;
+         case A_SDMMC_CLKSRC:
+             return s->clksrc;
++        case A_SDMMC_CLKENA:
++            return s->clkena;
++        case A_SDMMC_TMOUT:
++            return s->tmout;
++        case A_SDMMC_CTYPE:
++            return s->ctype;
++        case A_SDMMC_STATUS:
++            return SDMMC_STATUS_FIFO_EMPTY |
++                   (sdbus_get_inserted(&s->sdbus) ? SDMMC_STATUS_CARD_PRESENT : 0);
++        case A_SDMMC_CDETECT:
++            return sdbus_get_inserted(&s->sdbus) ? 0 : 1;
++        case A_SDMMC_WRTPRT:
++            return sdbus_get_readonly(&s->sdbus) ? 1 : 0;
++        case A_SDMMC_BMOD:
++            return s->bmod;
++        case A_SDMMC_CLOCK:
++            return s->clock;
+         case A_SDMMC_INTMASK:
+             return s->intmask;
+         case A_SDMMC_CMD:
+@@ -559,6 +609,13 @@
+     s->rintsts = 0;
+     s->ctrl = 0;
+     s->bytes_left = 0;
++    s->pwren = 0;
++    s->clkdiv = 0;
++    s->clkena = 0;
++    s->tmout = 0;
++    s->ctype = 0;
++    s->bmod = 0;
++    s->clock = 0;
+     s->idinten = 0;
+     s->idsts = 0;
+     s->blksiz = 512;
+--- a/include/hw/sd/dwc_sdmmc.h
++++ b/include/hw/sd/dwc_sdmmc.h
+@@ -35,7 +35,14 @@
+     qemu_irq irq;
+ 
+     uint32_t ctrl;
++    uint32_t pwren;
++    uint32_t clkdiv;
+     uint32_t clksrc;
++    uint32_t clkena;
++    uint32_t tmout;
++    uint32_t ctype;
++    uint32_t bmod;
++    uint32_t clock;
+     uint32_t cmd;
+     uint32_t cmdarg;
+     uint32_t resp[4];

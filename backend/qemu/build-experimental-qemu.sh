@@ -142,6 +142,24 @@ else
   echo "GDMA walk-channel helper already applied (idempotent): $APPLY_MARKER6"
 fi
 
+APPLY_MARKER7="$SOURCE_DIR/.protopandaemu-sdmmc-register-state-applied"
+if [[ ! -f "$APPLY_MARKER7" ]]; then
+  echo "+ applying ESP32-S3 DWC SDMMC register-state patch"
+  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0008-esp32s3-dwc-sdmmc-register-state.patch"
+  touch "$APPLY_MARKER7"
+else
+  echo "SDMMC register-state patch already applied (idempotent): $APPLY_MARKER7"
+fi
+
+APPLY_MARKER8="$SOURCE_DIR/.protopandaemu-rmt-tx-applied"
+if [[ ! -f "$APPLY_MARKER8" ]]; then
+  echo "+ applying ESP32-S3 RMT minimal TX model patch"
+  patch -p1 -d "$SOURCE_DIR" < "$ROOT_DIR/backend/qemu/patches/0009-esp32s3-rmt-tx.patch"
+  touch "$APPLY_MARKER8"
+else
+  echo "RMT TX model patch already applied (idempotent): $APPLY_MARKER8"
+fi
+
 cd "$SOURCE_DIR"
 if [[ ! -f build/build.ninja ]]; then
   echo "+ configure"

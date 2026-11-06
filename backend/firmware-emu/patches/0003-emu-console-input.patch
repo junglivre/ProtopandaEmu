@@ -1,0 +1,35 @@
+diff --git a/src/main.cpp b/src/main.cpp
+index 9644989..1b0b3a6 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -227,6 +227,30 @@ void second_loop(void*){
+ 
+ 
+ void loop() {
++#ifdef PROTOPANDAEMU_EMU
++  /* Virtual controller channel: the host program writes "IR:<addr>:<cmd>"
++   * lines to the console (QEMU serial stdin) and they are fed into the real
++   * IR command queue, so keybinds and drivers handle them unchanged. */
++  static String emuInputLine;
++  while (Serial.available()){
++    int c = Serial.read();
++    if (c == '\n' || c == '\r'){
++      if (emuInputLine.startsWith("IR:")){
++        unsigned long emuAddr = strtoul(emuInputLine.c_str() + 3, nullptr, 16);
++        unsigned long emuCmd = 0;
++        int emuSep = emuInputLine.indexOf(':', 3);
++        if (emuSep > 0){
++          emuCmd = strtoul(emuInputLine.c_str() + emuSep + 1, nullptr, 16);
++        }
++        g_InfraRed.injectCommand((uint16_t)emuAddr, (uint16_t)emuCmd);
++        Serial.printf("[EMU] injected IR %04X:%02X\n", (uint16_t)emuAddr, (uint16_t)emuCmd);
++      }
++      emuInputLine = "";
++    } else if (isprint(c) && emuInputLine.length() < 64){
++      emuInputLine += (char)c;
++    }
++  }
++#endif
+   Devices::BeginFrame();
+   #ifdef ENABLE_EDIT_MODE
+   if (g_editMode.IsOnEditMode()){

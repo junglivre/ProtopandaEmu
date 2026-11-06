@@ -9,3 +9,5 @@ SAME-PAGE-LOG.md
 AGENTS.md
 PLAN.md
 docs/
+artifacts/build-emu/
+artifacts/logs/

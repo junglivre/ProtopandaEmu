@@ -1,0 +1,57 @@
+diff --git a/include/tools/ir.hpp b/include/tools/ir.hpp
+index 0807330..ce63b11 100644
+--- a/include/tools/ir.hpp
++++ b/include/tools/ir.hpp
+@@ -32,6 +32,12 @@ class InfraRedManager{
+         inline bool hasCommand(){
+             return m_commands.empty();
+         }
++#ifdef PROTOPANDAEMU_EMU
++        // Emulator-only: push a virtual NEC command without real IR hardware
++        // (host writes "IR:<addr>:<cmd>" lines to the console; see
++        // scripts/build-firmware-emu.sh).
++        void injectCommand(uint16_t addr, uint16_t cmd);
++#endif
+     private:
+         void decodeIR();
+         uint16_t m_interruptPin;
+diff --git a/src/tools/ir.cpp b/src/tools/ir.cpp
+index f9531be..84d0e28 100644
+--- a/src/tools/ir.cpp
++++ b/src/tools/ir.cpp
+@@ -34,6 +34,12 @@ IrCommand InfraRedManager::getLastCommand(){
+     return aux;
+ }
+ 
++#ifdef PROTOPANDAEMU_EMU
++void InfraRedManager::injectCommand(uint16_t addr, uint16_t cmd){
++    m_commands.push(IrCommand(addr, cmd));
++}
++#endif
++
+ void InfraRedManager::decodeIR() {
+     if (m_counter < 68) {
+         return;
+@@ -124,7 +130,22 @@ void InfraRedManager::setInterruptPin(uint16_t p){
+     if (m_interruptPin != 0){
+         disableInterrupt();
+     }
++#ifdef PROTOPANDAEMU_EMU
++    /* Configure the pin directly: pinMode() re-registers the GPIO in the
++     * Arduino peripheral manager, which detaches any SDMMC bus sharing it
++     * (v3.4.0 keybinds ship infrared_gpio == MMC_PIN_CLK == 21) and unmounts
++     * storage mid-boot. The emulator's SDMMC model does not drive the GPIO
++     * matrix, so IR input and the SD bus can share the pin here. */
++    gpio_config_t emuConf = {};
++    emuConf.pin_bit_mask = 1ULL << p;
++    emuConf.mode = GPIO_MODE_INPUT;
++    emuConf.pull_up_en = GPIO_PULLUP_DISABLE;
++    emuConf.pull_down_en = GPIO_PULLDOWN_DISABLE;
++    emuConf.intr_type = GPIO_INTR_DISABLE;
++    gpio_config(&emuConf);
++#else
+     pinMode(p, INPUT);
++#endif
+     delay(1);
+     m_interruptPin = digitalPinToInterrupt(p);
+ }

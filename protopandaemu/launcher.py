@@ -1,4 +1,4 @@
-"""Minimal Tkinter desktop launcher for the real Proto-panda session API.
+"""Launcher desktop Tkinter para a API de sessão do Protopanda.
 
 The launcher deliberately stays thin: it edits the upstream animation frame
 fields, writes a machine profile, and calls ``protopandaemu.supervisor`` in
@@ -119,19 +119,43 @@ def _read_latest_dumps(stderr_path: pathlib.Path) -> tuple[dict[str, Any] | None
     oled_matches = list(OLED_RE.finditer(text))
     hub_matches = list(HUB75_RE.finditer(text))
 
-    def decode_oled(match: re.Match[str]) -> dict[str, Any]:
+    def decode_oled(match: re.Match[str]) -> dict[str, Any] | None:
         seq, width, height, byte_count, hex_data = match.groups()
+        try:
+            data = bytes.fromhex(hex_data)
+        except ValueError:
+            # A tail read can land mid-dump; skip broken matches instead of
+            # crashing the dashboard refresh loop.
+            return None
+        if len(data) != int(byte_count):
+            return None
         return {"seq": int(seq), "width": int(width), "height": int(height),
-                "bytes": int(byte_count), "data": bytes.fromhex(hex_data)}
+                "bytes": int(byte_count), "data": data}
 
-    def decode_hub(match: re.Match[str]) -> dict[str, Any]:
+    def decode_hub(match: re.Match[str]) -> dict[str, Any] | None:
         seq, width, height, rows, byte_count, descriptors, hex_data = match.groups()
+        try:
+            data = bytes.fromhex(hex_data)
+        except ValueError:
+            return None
+        if len(data) != int(byte_count):
+            return None
         return {"seq": int(seq), "width": int(width), "height": int(height),
                 "rows_per_frame": int(rows), "bytes": int(byte_count),
-                "descriptors": int(descriptors), "data": bytes.fromhex(hex_data)}
+                "descriptors": int(descriptors), "data": data}
 
-    return (decode_oled(oled_matches[-1]) if oled_matches else None,
-            decode_hub(hub_matches[-1]) if hub_matches else None)
+    # Newest first; the first fully-decodable dump wins.
+    oled = None
+    for match in reversed(oled_matches):
+        oled = decode_oled(match)
+        if oled is not None:
+            break
+    hub = None
+    for match in reversed(hub_matches):
+        hub = decode_hub(match)
+        if hub is not None:
+            break
+    return oled, hub
 
 
 class LauncherApp:
@@ -170,7 +194,7 @@ class LauncherApp:
         self._schedule_refresh()
 
     def _build_widgets(self) -> None:
-        self.root.title("Proto-panda Emulator — M5 Launcher")
+        self.root.title("Protopanda Emulator")
         self.root.minsize(1120, 760)
         self.root.columnconfigure(1, weight=1)
         self.root.rowconfigure(0, weight=1)
@@ -183,15 +207,15 @@ class LauncherApp:
         preview.columnconfigure(0, weight=1)
         preview.rowconfigure(2, weight=1)
 
-        ttk.Label(controls, text="Proto-panda M5", font=("TkDefaultFont", 16, "bold")).grid(
+        ttk.Label(controls, text="Protopanda", font=("TkDefaultFont", 16, "bold")).grid(
             row=0, column=0, sticky="w", pady=(0, 12))
-        ttk.Label(controls, text="Hostdir / cartão SD").grid(row=1, column=0, sticky="w")
+        ttk.Label(controls, text="Cartão SD").grid(row=1, column=0, sticky="w")
         ttk.Label(controls, textvariable=self.hostdir_var, wraplength=360).grid(
             row=2, column=0, sticky="w", pady=(2, 4))
         ttk.Button(controls, text="Escolher pasta…", command=self.choose_folder).grid(
             row=3, column=0, sticky="ew", pady=(0, 12))
 
-        wiring = ttk.LabelFrame(controls, text="Wiring por metade — campos reais de animation.json", padding=8)
+        wiring = ttk.LabelFrame(controls, text="Wiring por metade (animation.json)", padding=8)
         wiring.grid(row=4, column=0, sticky="ew", pady=(0, 12))
         wiring.columnconfigure(1, weight=1)
         ttk.Label(wiring, text="Metade esquerda", font=("TkDefaultFont", 10, "bold")).grid(
@@ -220,20 +244,32 @@ class LauncherApp:
         self.create_profile_button = ttk.Button(controls, text="Criar / atualizar perfil",
                                                 command=self.create_profile)
         self.create_profile_button.grid(row=5, column=0, sticky="ew", pady=(0, 6))
-        self.start_button = ttk.Button(controls, text="Iniciar sessão real", command=self.start_session)
+        self.start_button = ttk.Button(controls, text="Iniciar sessão", command=self.start_session)
         self.start_button.grid(row=6, column=0, sticky="ew", pady=3)
         self.stop_button = ttk.Button(controls, text="Parar sessão", command=self.stop_session, state="disabled")
         self.stop_button.grid(row=7, column=0, sticky="ew", pady=3)
+        controller = ttk.LabelFrame(controls, text="Controles virtuais (injeta IR na sessão)")
+        controller.grid(row=8, column=0, sticky="ew", pady=(8, 4))
+        for column, (label, code) in enumerate(
+                [("▲", "B9"), ("▼", "EA"), ("◀", "BB"), ("▶", "BC")]):
+            ttk.Button(controller, text=label, width=4,
+                       command=lambda code=code: self.send_virtual_button(code)).grid(
+                row=0, column=column, padx=2)
+        for column, (label, code) in enumerate(
+                [("OK", "BF"), ("Voltar", "E6"), ("Aux", "BA")]):
+            ttk.Button(controller, text=label,
+                       command=lambda code=code: self.send_virtual_button(code)).grid(
+                row=1, column=column, padx=2, pady=(2, 0))
         ttk.Label(controls, textvariable=self.status_var, wraplength=360).grid(
-            row=8, column=0, sticky="w", pady=(12, 4))
+            row=9, column=0, sticky="w", pady=(12, 4))
         ttk.Label(controls, textvariable=self.profile_hash_var, wraplength=360).grid(
-            row=9, column=0, sticky="w", pady=2)
-        ttk.Label(controls, textvariable=self.session_var, wraplength=360).grid(
             row=10, column=0, sticky="w", pady=2)
-        ttk.Label(controls, textvariable=self.resource_var, wraplength=360).grid(
+        ttk.Label(controls, textvariable=self.session_var, wraplength=360).grid(
             row=11, column=0, sticky="w", pady=2)
+        ttk.Label(controls, textvariable=self.resource_var, wraplength=360).grid(
+            row=12, column=0, sticky="w", pady=2)
 
-        ttk.Label(preview, text="Preview real do backend", font=("TkDefaultFont", 14, "bold")).grid(
+        ttk.Label(preview, text="Preview do backend", font=("TkDefaultFont", 14, "bold")).grid(
             row=0, column=0, sticky="w")
         ttk.Label(preview, textvariable=self.hub75_var, wraplength=760).grid(
             row=1, column=0, sticky="w", pady=(2, 6))
@@ -247,7 +283,7 @@ class LauncherApp:
         hub_frame = ttk.LabelFrame(displays, text="HUB75 — RGB888", padding=8)
         hub_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
         self.oled_rotate_check = ttk.Checkbutton(
-            oled_frame, text="Girar 180° na visualização (cosmético; dados reportados não mudam)",
+            oled_frame, text="Girar 180° (só visual)",
             variable=self.oled_rotate_var, command=self._redraw_oled_from_cache)
         self.oled_rotate_check.pack(anchor="w")
         self.oled_canvas = tk.Canvas(oled_frame, width=384, height=192, bg="#202020",
@@ -266,7 +302,7 @@ class LauncherApp:
         self.uart_text.grid(row=1, column=0, sticky="nsew")
 
     def _on_wiring_changed(self, _event: object | None = None) -> None:
-        self.status_var.set("Wiring alterado: clique em ‘Criar / atualizar perfil’ para gravar animation.json.")
+        self.status_var.set("Wiring alterado. Clique em 'Criar / atualizar perfil' para gravar.")
 
     def selected_wiring(self) -> dict[str, Any]:
         return selected_wiring(flip_left=self.left_flip_var.get(), flip_right=self.right_flip_var.get(),
@@ -280,10 +316,10 @@ class LauncherApp:
         self.hostdir = root
         self.hostdir_var.set(str(root))
         self._load_existing_wiring()
-        self.status_var.set("Pasta selecionada. Confira as duas metades e crie o perfil.")
+        self.status_var.set("Pasta selecionada. Crie o perfil.")
 
     def choose_folder(self) -> None:
-        chosen = filedialog.askdirectory(parent=self.root, title="Escolha a pasta SD do Proto-panda",
+        chosen = filedialog.askdirectory(parent=self.root, title="Escolha a pasta SD do Protopanda",
                                          mustexist=True)
         if chosen:
             try:
@@ -334,31 +370,26 @@ class LauncherApp:
                 "host_directory": str(self.hostdir),
                 "launcher_wiring": wiring,
             }
+            emu_firmware = os.environ.get("PROTOPANDAEMU_EMU_FIRMWARE", "").strip()
+            if emu_firmware:
+                emu_path = pathlib.Path(emu_firmware).expanduser().resolve()
+                if not emu_path.is_file():
+                    raise LauncherError(f"PROTOPANDAEMU_EMU_FIRMWARE não existe: {emu_path}")
+                profile["firmware_image"] = str(emu_path)
+                profile["firmware_sha256"] = supervisor._stable_sha256(emu_path, "firmware_image")
             destination = self._profile_destination()
             _write_json(destination, profile)
             profile_hash = supervisor.canonical_hash(profile)
             self.profile_path = destination
             self.profile_hash_var.set(f"Perfil hash: {profile_hash}")
-            self.status_var.set(f"Perfil criado; {frame_count} frame(s) receberam os quatro campos reais.")
+            self.status_var.set(f"Perfil criado. {frame_count} frame(s) atualizados.")
             return destination
         except (LauncherError, OSError, KeyError) as exc:
             messagebox.showerror("Não foi possível criar o perfil", str(exc), parent=self.root)
             return None
 
     def _warn_if_unsupported_input_mode(self) -> None:
-        """Three real, confirmed gaps in `.work/upstream-v3.4.0/lualib/input.lua`
-        this backend/firmware pair cannot avoid:
-        - 'BLE': reaches startBLE()/startBLERadio() with no BLE controller
-          modeled, hits a Guru Meditation assert, reboots forever.
-        - 'NONE': input.Load() accepts it, but the separate input.Start()
-          only implements 'BLE'/'INFRARED' and errors
-          ("Invalid input mode 'NONE'") for anything else -- a real
-          firmware inconsistency between the two functions, not something
-          a backend fix can paper over.
-        - 'INFRARED' without a numeric input.infrared_gpio: input.Load()
-          requires it and errors otherwise.
-        Warn instead of silently stalling the user's real SD card config.
-        """
+        """Avisa sobre modos de input que o emulador não suporta."""
         if self.hostdir is None:
             return
         try:
@@ -369,34 +400,31 @@ class LauncherApp:
         if mode == "BLE":
             messagebox.showwarning(
                 "keybinds.json usa input.mode=\"BLE\"",
-                "O backend QEMU experimental não emula um controlador BLE: o "
-                "firmware real trava com um assert ao chamar startBLE() e "
-                "reinicia em loop infinito (reproduzido e confirmado). Para "
-                "testar neste emulador, mude input.mode para \"infrared\" (com "
-                "um infrared_gpio numérico) no keybinds.json. A sessão vai "
-                "iniciar mesmo assim, mas vai bootloopar.",
+                "O emulador não tem controlador BLE. Use input.mode=\"infrared\" "
+                "com infrared_gpio numérico. Com \"BLE\" a sessão bootloopa.",
                 parent=self.root)
         elif mode == "NONE":
             messagebox.showwarning(
                 "keybinds.json usa input.mode=\"none\"",
-                "input.lua aceita \"none\" em input.Load(), mas a função "
-                "separada input.Start() só trata \"BLE\"/\"INFRARED\" e dá erro "
-                "(\"Invalid input mode 'NONE'\") para qualquer outro valor -- "
-                "uma inconsistência real do firmware entre as duas funções, "
-                "não algo que o backend possa contornar. Use \"infrared\" (com "
-                "um infrared_gpio numérico) para testar neste emulador.",
+                "input.Start() só aceita \"BLE\"/\"INFRARED\"; \"none\" dá erro "
+                "no firmware. Use \"infrared\" com infrared_gpio numérico.",
                 parent=self.root)
         elif mode == "INFRARED":
             gpio = keybinds.get("input", {}).get("infrared_gpio")
             if not isinstance(gpio, (int, float)) or isinstance(gpio, bool):
                 messagebox.showwarning(
                     "keybinds.json: infrared_gpio ausente",
-                    "input.mode=\"infrared\" exige um campo numérico "
-                    "infrared_gpio em input.Load(); sem ele o firmware dá erro "
-                    "(\"keybinds.json missing 'infrared_gpio' in input "
-                    "segment\"). Adicione, por exemplo, "
-                    "\"infrared_gpio\": 21 ao objeto input do keybinds.json.",
+                    "input.mode=\"infrared\" exige infrared_gpio numérico no "
+                    "keybinds.json. Adicione por exemplo \"infrared_gpio\": 13.",
                     parent=self.root)
+
+    def send_virtual_button(self, code: str) -> None:
+        """Inject one virtual IR command into the live guest session."""
+        if self.handle is None or self.handle.wait(timeout=0):
+            self.status_var.set("Nenhuma sessão ativa para injetar controles.")
+            return
+        if not self.handle.send_serial_input(f"IR:FF00:{code}\n"):
+            self.status_var.set("Falha ao escrever no console da sessão.")
 
     def start_session(self) -> None:
         if self.handle is not None and not self.handle.wait(timeout=0):
@@ -417,7 +445,7 @@ class LauncherApp:
         report = self.handle.session_report()
         self.last_report = report
         self.session_var.set(f"Sessão: {report['session_id']}\nPerfil hash: {report['profile_hash']}")
-        self.status_var.set("Sessão real iniciada pelo supervisor importado; aguardando dumps do backend.")
+        self.status_var.set("Sessão iniciada. Aguardando dumps do backend.")
         self.start_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
 
@@ -440,7 +468,13 @@ class LauncherApp:
         self._after_id = self.root.after(100, self.refresh)
 
     def refresh(self) -> None:
-        if self.handle is not None:
+        # Reschedule first: nothing below may kill the refresh loop, or the
+        # dashboard freezes permanently (truncated dumps in the stderr tail
+        # used to raise inside the decoders and stop the after() chain).
+        self._schedule_refresh()
+        if self.handle is None:
+            return
+        try:
             report = self.handle.session_report()
             self.last_report = report
             resources = report.get("resources") or {}
@@ -451,20 +485,20 @@ class LauncherApp:
                 if oled:
                     self._last_oled_dump = oled
                     self._draw_oled(oled)
-                    self.oled_var.set(f"OLED: dump real seq={oled['seq']} {oled['width']}x{oled['height']}, {oled['bytes']} bytes")
+                    self.oled_var.set(f"OLED: seq={oled['seq']} {oled['width']}x{oled['height']}, {oled['bytes']} bytes")
                 if hub:
                     self._draw_hub75(hub)
                     black = not any(hub["data"])
-                    note = "all-black clearScreen state observed in M4" if black else "real RGB888 dump"
-                    self.hub75_var.set(f"HUB75: dump real seq={hub['seq']} {hub['width']}x{hub['height']} "
-                                       f"({hub['bytes']} bytes, {hub['descriptors']} descriptors); {note}")
+                    self.hub75_var.set(f"HUB75: seq={hub['seq']} {hub['width']}x{hub['height']} "
+                                       f"({hub['bytes']} bytes, {hub['descriptors']} descriptors)")
             uart = report.get("uart_log_path")
             if uart:
                 self._set_uart_tail(pathlib.Path(uart))
             if report.get("exit_reason") and self.handle is not None:
                 self.start_button.configure(state="normal")
                 self.stop_button.configure(state="disabled")
-        self._schedule_refresh()
+        except Exception as exc:  # keep the dashboard alive for a reportable backend failure
+            self.status_var.set(f"Erro no preview: {exc}")
 
     def _set_uart_tail(self, path: pathlib.Path) -> None:
         try:
@@ -533,9 +567,11 @@ class LauncherApp:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Tkinter desktop launcher for Proto-panda sessions")
+    parser = argparse.ArgumentParser(description="Launcher desktop para sessões Protopanda")
     parser.add_argument("--hostdir", type=pathlib.Path, help="start with this firmware SD folder")
-    parser.add_argument("--timeout", type=float, default=30.0)
+    # Primeiro boot do emu compõe o frames.bulk no FFAT via TCG (~100 s de
+    # wall); 30 s matava a sessão no meio do compose (~70% da barra).
+    parser.add_argument("--timeout", type=float, default=600.0)
     args = parser.parse_args(argv)
     root = tk.Tk()
     app = LauncherApp(root, initial_hostdir=args.hostdir, timeout=args.timeout)

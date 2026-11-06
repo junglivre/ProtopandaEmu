@@ -1,0 +1,13 @@
+--- a/src/tools/displays/ws2812.cpp
++++ b/src/tools/displays/ws2812.cpp
+@@ -16,8 +16,10 @@
+     setPixelWithFlip(0, 0, 255, 0, 0,  f);
+     setPixelWithFlip(1, 0, 0, 255, 0,  f);
+ 
++#ifndef PROTOPANDAEMU_EMU
+     FastLED.show(); 
+     FastLED.delay(5); 
++#endif
+ 
+ };
+ 

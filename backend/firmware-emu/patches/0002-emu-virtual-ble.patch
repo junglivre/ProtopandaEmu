@@ -1,0 +1,24 @@
+diff --git a/src/lua/luainterface.cpp b/src/lua/luainterface.cpp
+index 180f44a..9fffcff 100644
+--- a/src/lua/luainterface.cpp
++++ b/src/lua/luainterface.cpp
+@@ -955,7 +955,18 @@ void LuaInterface::RegisterConstants()
+ 
+ bool LuaInterface::Start()
+ {
+-  
++
++#ifdef PROTOPANDAEMU_EMU
++  #ifdef ENABLE_BLE
++  /* Virtual BLE: register the manager without a radio (NimBLE is never
++   * initialized) so core drivers whose onEnable() requires BLE - like the
++   * panda hand-controller driver - work under INFRARED input on the
++   * emulator. Must run before INFRARED starts (BleManager::begin() refuses
++   * once IR is active). */
++  g_remoteControls.begin();
++  #endif
++#endif
++
+   m_lua = new (LuaWrapper);
+   if (!m_lua)
+   {

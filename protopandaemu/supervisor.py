@@ -242,7 +242,8 @@ def _firmware_path(profile: dict[str, Any], profile_path: pathlib.Path) -> pathl
     if observed != declared:
         raise ProfileError(f"firmware_sha256 mismatch: declared {declared}, disk {observed}",
                            code="firmware_hash_mismatch")
-    if observed != EXPECTED_FIRMWARE_SHA256:
+    extra = os.environ.get("PROTOPANDAEMU_EXTRA_FIRMWARE_SHA256", "").strip().lower()
+    if observed != EXPECTED_FIRMWARE_SHA256 and observed != extra:
         raise ProfileError(f"firmware is not the pinned Proto-panda v3.4.0 image: {observed}",
                            code="firmware_not_pinned")
     if candidate.stat().st_size != 16 * 1024 * 1024:
@@ -577,6 +578,21 @@ class SessionHandle:
                 return False
             return True
 
+    def send_serial_input(self, text: str) -> bool:
+        """Write raw text to the guest serial console.
+
+        The ``mon:stdio`` mux routes plain stdin bytes to the guest UART, so
+        the emu firmware's virtual controller channel ("IR:<addr>:<cmd>"
+        lines) receives them directly.
+        """
+        with self._monitor_lock:
+            try:
+                self._monitor_stdin.write(text.encode())
+                self._monitor_stdin.flush()
+                return True
+            except (OSError, BrokenPipeError):
+                return False
+
     def _terminate(self, *, force: bool) -> None:
         if self._process.poll() is not None:
             return
@@ -701,11 +717,15 @@ def _qemu_argv(flash_state: pathlib.Path, sd_image: pathlib.Path) -> list[str]:
     # hostdir is never interpolated into this list.
     flash = _safe_qemu_path(flash_state, "flash_state_path")
     sd = _safe_qemu_path(sd_image, "generated_sd_image")
-    return [str(QEMU_DEFAULT), "-nographic", "-machine", "esp32s3", "-m", "8M",
+    argv = [str(QEMU_DEFAULT), "-nographic", "-machine", "esp32s3", "-m", "8M",
             "-global", "driver=ssi_psram,property=is_octal,value=true",
             "-drive", f"file={flash},if=mtd,format=raw",
             "-drive", f"if=sd,index=0,file={sd},format=raw",
             "-nic", "none", "-d", "unimp,guest_errors", "-serial", "mon:stdio"]
+    # Opt-in escape hatch for the emu firmware variant: extra QEMU arguments
+    # (e.g. "-icount shift=4,sleep=off" to cut FFat wait-loop wall time).
+    extra = os.environ.get("PROTOPANDAEMU_EXTRA_QEMU_ARGS", "").split()
+    return argv + extra
 
 
 def run_session(profile_path: str | os.PathLike[str], hostdir: str | os.PathLike[str] | None = None,
@@ -756,7 +776,9 @@ def run_session(profile_path: str | os.PathLike[str], hostdir: str | os.PathLike
             _safe_qemu_path(sd_state, "sd_state_path")
             sd_image = _make_sd_image(session_dir, sd_state)
         firmware_sha256 = _stable_sha256(firmware, "firmware_image")
-        if firmware_sha256 != profile["firmware_sha256"].lower() or firmware_sha256 != EXPECTED_FIRMWARE_SHA256:
+        extra_allowed = os.environ.get("PROTOPANDAEMU_EXTRA_FIRMWARE_SHA256", "").strip().lower()
+        if firmware_sha256 != profile["firmware_sha256"].lower() or (
+                firmware_sha256 != EXPECTED_FIRMWARE_SHA256 and firmware_sha256 != extra_allowed):
             raise ProfileError("firmware changed before spawn or is no longer pinned",
                                code="firmware_changed_before_spawn", profile_hash=profile_hash,
                                profile_path=profile_file)
