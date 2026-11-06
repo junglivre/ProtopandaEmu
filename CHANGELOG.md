@@ -82,3 +82,47 @@
   backend (no BLE controller model; a real firmware config with
   `input.mode: "BLE"` boots into an infinite crash/reboot loop) and warn
   for it in the launcher before starting a session.
+- Fix two real bugs in the experimental QEMU DWC SDMMC model: it returned
+  zero for BMOD/CLOCK/STATUS/CDETECT/WRTPRT with no storage attached, and
+  a guest register read-modify-write on BMOD could silently clear the
+  IDMAC-enable bit mid-read, disabling the DMA descriptor engine. Also
+  gate the descriptor walk on `BMOD.ENABLE` and `CMD.data_expected` so a
+  stale `BYTCNT` from a prior command can't start a spurious walk
+  (`backend/qemu/patches/0008-esp32s3-dwc-sdmmc-register-state.patch`).
+  This resolves the long-standing M4 VFS/FatFs race (`ISSUES.md`); the
+  user's real, unmodified SD card now boots to `completed setup` with
+  zero FatFs errors and renders real animated HUB75 content.
+- Add a minimal ESP32-S3 RMT TX device model
+  (`backend/qemu/patches/0009-esp32s3-rmt-tx.patch`) so FastLED's
+  `leds.begin()` RMT wait-loop no longer stalls boot indefinitely.
+- Build an emu-specific firmware variant from the user's own
+  `Proto-panda` `alt` fork, gated entirely behind `-DPROTOPANDAEMU_EMU=1`
+  (`backend/firmware-emu/patches/`, `scripts/build-firmware-emu.sh`): the
+  shared IR/SDMMC pin uses raw `gpio_config()` instead of `pinMode()` to
+  avoid detaching the SD bus; `BleManager::begin()` runs with no radio so
+  BLE-gated driver `onEnable()` calls pass under infrared input mode; a
+  console command (`IR:<addr>:<cmd>\n` over UART) injects virtual IR
+  commands; LED strip output is stubbed (HUB75 is unaffected). No
+  firmware config, pin assignment, or SD data is modified to make this
+  work.
+- Add launcher virtual-controller buttons wired to the real IR codes from
+  the user's `keybinds.json`, sending injected IR commands over the
+  session's UART.
+- Fix the launcher's live preview/log freeze: `refresh()`'s `after()`
+  reschedule call was the LAST statement in the method, so any exception
+  in the body (e.g. a dump hex payload truncated mid-write by the bounded
+  tail read) killed the polling loop permanently — even starting a new
+  session afterward left the GUI dead while the backend kept running.
+  `refresh()` now reschedules itself first and the dump decoder returns
+  `None` instead of raising on a truncated/mismatched-length payload,
+  picking the newest fully-decodable dump instead
+  (`tests/test_launcher.py::RefreshRescheduleTests`,
+  `::ReadLatestDumpsSkipsTruncatedTailMatchTests`).
+- Raise the launcher's default `--timeout` from 30s to 600s. A real
+  session's first boot composes the firmware's `frames.bulk` on FFat
+  (~100s wall-clock for ~800 frames); 30s silently killed the session
+  mid-compose, which looked identical to a GUI freeze and left a partial
+  bulk file for the next boot to choke on.
+- Clean up GUI text: drop "M5"/AI-slop phrasing from labels and warnings;
+  "Proto-panda" is reserved for the upstream repo URL, the product name
+  in the UI is "Protopanda".
