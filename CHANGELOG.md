@@ -465,3 +465,32 @@
   other live output), so the launcher still flooded a real terminal
   with LED_DUMP lines even after that fix. An explicit override still
   wins. Verified on a real boot: zero UART bytes reached stdout.
+- Add a Speaker control that reproduces the real piezo buzzer: a new
+  firmware-emu dump (`[EMU] TONE seq=<n> freq=<hz> duration_ms=<ms>`)
+  fires on every `Devices::BuzzerTone`/`BuzzerToneDuration`/
+  `BuzzerNoTone` call, and the launcher synthesizes the same
+  square-wave PWM tone on the host's audio output, with a volume
+  slider. Each start schedules its own auto-stop from the event's
+  duration so a short UI beep always gets its full audible length
+  even if the firmware's own stop line lands in the same poll window.
+  Verified on a real boot: the boot melody (2220/1220/150/880 Hz) and
+  its stops decoded correctly end to end.
+- Apply the same brightness-dump pattern already used for HUB75 to the
+  LED strip (`[EMU] LED_BRIGHTNESS value=<0-255>`, from
+  `LedStrip::setBrightness`/`Update`'s gentle ramp): the decoded color
+  buffer is always full-brightness since `FastLED.setBrightness()` is
+  a separate global scalar, so the strip preview now scales to the
+  real configured value the same way the HUB75 preview already did.
+- Fix the HUB75 preview rendering much darker/lower-contrast than the
+  source asset. ESP32-HUB75-MatrixPanel-I2S-DMA always applies a
+  CIE1931 gamma lookup table before writing bit-planes (`NO_CIE1931`
+  is never defined in this firmware), so the decoded bytes are the
+  post-gamma wire value, not the asset's original color -- an input of
+  128 only ever reaches the wire as 47. The launcher now applies the
+  inverse of that same table before display.
+- Prefer the "pulse" output device for the Speaker, same fix as the
+  Mic's existing input-device preference: PortAudio's own default
+  output can resolve to a raw ALSA device that bypasses the desktop
+  sound server's routing, so a tone could come out of the wrong
+  device entirely instead of wherever the host actually has audio
+  routed.

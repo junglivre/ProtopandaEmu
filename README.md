@@ -39,8 +39,8 @@ relies on the same already-verified HUB75 decoder.
 | Persistent state | Flash and private SD state survive a clean stop and restart. |
 | Folder-backed storage | A chosen folder becomes the firmware's SD card: safe staging, crash-recoverable commit, backups and conflict retention. |
 | OLED | Real SSD1306 I2C protocol, real 128x64 GDDRAM; byte-exact against an independently derived oracle. |
-| HUB75 | Decoder verified against real GDMA traffic (continuous streaming, real multi-plane descriptors); a sentinel-descriptor bug that duplicated dense frames into mirrored quadrants is fixed. Real animated content is captured end to end (`artifacts/mvp/hub75-real-content-proof/`). The decoded color data is always full-brightness (brightness is a separate OE/blanking signal this decoder can't see); the launcher scales the preview to the real configured brightness separately, see below. |
-| Desktop launcher | Translated, dark-theme Tkinter GUI: a three-panel preview (OLED + both HUB75 halves) at native aspect, aspect-locked resize, independent left/right wiring controls, a firmware picker (explicit choice overrides auto-detection), real hostdir sessions, live diagnostics, a virtual IR controller, a boop proximity-sensor toggle for SD cards using `trigger_mode: "gpio"`, a live LED strip preview (firmware-buffer capture, see below), and a Mic VU meter that captures the host microphone and injects its level as the firmware's FFT speech-energy reading, see below. |
+| HUB75 | Decoder verified against real GDMA traffic (continuous streaming, real multi-plane descriptors); a sentinel-descriptor bug that duplicated dense frames into mirrored quadrants is fixed. Real animated content is captured end to end (`artifacts/mvp/hub75-real-content-proof/`). The decoded color data is always full-brightness (brightness is a separate OE/blanking signal this decoder can't see); the launcher scales the preview to the real configured brightness separately, see below. The decoded bytes are also the panel library's own post-gamma wire value (it always applies a CIE1931 correction before writing bit-planes), so the launcher additionally applies the inverse of that same table before display -- otherwise the preview looks much darker/lower-contrast than the source asset. |
+| Desktop launcher | Translated, dark-theme Tkinter GUI: a three-panel preview (OLED + both HUB75 halves) at native aspect, aspect-locked resize, independent left/right wiring controls, a firmware picker (explicit choice overrides auto-detection), real hostdir sessions, live diagnostics, a virtual IR controller, a boop proximity-sensor toggle for SD cards using `trigger_mode: "gpio"`, a live LED strip preview (firmware-buffer capture, see below) with its own real configured brightness applied, a Speaker control that plays the real piezo buzzer tone (boot/menu/boop beeps) on the host's audio output with a volume slider, and a Mic VU meter that captures the host microphone and injects its level as the firmware's FFT speech-energy reading, see below. |
 
 **Known gaps** (unemulated or unverified hardware, not backend bugs):
 
@@ -196,17 +196,29 @@ the continuous/DMA ADC `fft.cpp`'s real sampling needs -- the real
 completes the transaction but doesn't decode signal timing, so there's
 no wire to light); dump the real `LedStrip::Display()` computed color
 buffer to the console instead (throttled to 100ms, change-gated),
-for the live LED preview below. A separate, likewise always-on
-console line (`[EMU] HUB75_BRIGHTNESS value=<0-255>`) reports every
-brightness change -- both `Devices::SetMaxBrightness` (the startup
-gentle ramp) and the separate `setPanelBrightness` Lua binding (the
-settings menu's brightness slider and any other runtime change; it
-writes straight to the display driver and never calls
-`SetMaxBrightness`, so it needed its own hook) -- throttled and
-change-gated the same way the LED dump is; the launcher scales its
-decoded (always full-brightness) preview by that value. No firmware
-config, pin assignment, or SD data is edited to make any of this work
-— board profile and GPIO assignments stay real.
+for the live LED preview below. The same brightness gap applies to the
+LED strip: `FastLED.setBrightness()` is a separate global scalar never
+baked into the color buffer, so a second console line (`[EMU]
+LED_BRIGHTNESS value=<0-255>`) reports it from both
+`LedStrip::setBrightness()` and the gentle-ramp step in `Update()`.
+Likewise for HUB75, a separate, likewise always-on console line
+(`[EMU] HUB75_BRIGHTNESS value=<0-255>`) reports every brightness
+change -- both `Devices::SetMaxBrightness` (the startup gentle ramp)
+and the separate `setPanelBrightness` Lua binding (the settings menu's
+brightness slider and any other runtime change; it writes straight to
+the display driver and never calls `SetMaxBrightness`, so it needed
+its own hook) -- throttled and change-gated the same way the LED dump
+is; the launcher scales each decoded (always full-brightness) preview
+by its own value. The real board's piezo buzzer is a square-wave PWM
+tone (`ToneESP32::tone()`), not modeled by this backend's PWM/LEDC
+peripheral either; `Devices::BuzzerTone`/`BuzzerToneDuration`/
+`BuzzerNoTone` dump a third console line (`[EMU] TONE seq=<n>
+freq=<hz> duration_ms=<ms>`, freq=0 meaning stop) on every call --
+unthrottled, since these are one-shot UI events, not per-frame state --
+which the launcher's Speaker control (see below) synthesizes as the
+same square wave on the host's own audio output. No firmware config,
+pin assignment, or SD data is edited to make any of this work — board
+profile and GPIO assignments stay real.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/path/to/your/fork \
@@ -225,7 +237,14 @@ runs. For SD cards with `misc.json`'s `boop.trigger_mode: "gpio"`, a
 configs, which have no digital pin to override. Below the HUB75/OLED
 preview, a LED strip row renders the real colors `LedStrip::Display()`
 computed (not a hardware-traffic trace like HUB75/OLED, see Current
-status above) for SD cards that drive WS2812 output. Below that, an
+status above) for SD cards that drive WS2812 output, scaled to the
+real configured strip brightness the same way the HUB75 preview is. A
+Speaker row next to it has a volume slider and plays the real piezo
+buzzer's square-wave tone (boot melody, menu navigation clicks, boop
+feedback, BLE connect/disconnect chimes) through the host's default
+audio output via the same `sounddevice` package the Mic uses below;
+silent if that package or a usable output device isn't available,
+same as the Mic. Below that, an
 "Input" dropdown lists the host's available
 microphones (`sounddevice.query_devices()`), and a "Mic" button starts
 capturing the selected one through the optional

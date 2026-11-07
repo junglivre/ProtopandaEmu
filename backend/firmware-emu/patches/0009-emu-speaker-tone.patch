@@ -1,0 +1,50 @@
+diff --git a/src/tools/devices.cpp b/src/tools/devices.cpp
+index 980fc77..62bd2e8 100644
+--- a/src/tools/devices.cpp
++++ b/src/tools/devices.cpp
+@@ -521,9 +521,25 @@ bool Devices::ServoMove(int servoId, float angle){
+     #endif
+ }
+ 
++#ifdef PROTOPANDAEMU_EMU
++// Reproduces the real piezo buzzer's square-wave tone on the host: see
++// BuzzerTone/BuzzerToneDuration/BuzzerNoTone below. freq=0 means stop.
++// No throttle (unlike the brightness/LED dumps): these are one-shot UI
++// events, not per-frame state, so every call is a genuinely new sound.
++// seq is monotonic so the launcher can tell a fresh event apart from a
++// stale one still sitting in its tail-read window.
++static void emuDumpTone(int freq, int durationMs){
++  static uint32_t seq = 0;
++  Serial.printf("[EMU] TONE seq=%u freq=%d duration_ms=%d\n", (unsigned)(seq++), freq, durationMs);
++}
++#endif
++
+ bool Devices::BuzzerTone(int tone){
+   #ifdef USE_BUZZER
+   buzzer.tone(tone);
++  #ifdef PROTOPANDAEMU_EMU
++  emuDumpTone(tone, 0);
++  #endif
+   return true;
+   #else
+   return false;
+@@ -534,6 +550,9 @@ bool Devices::BuzzerToneDuration(int tone, int duration){
+   #ifdef USE_BUZZER
+   buzzer.tone(tone);
+   m_toneDuration = millis()+duration;
++  #ifdef PROTOPANDAEMU_EMU
++  emuDumpTone(tone, duration);
++  #endif
+   return true;
+   #else
+   return false;
+@@ -543,6 +562,9 @@ bool Devices::BuzzerToneDuration(int tone, int duration){
+ bool Devices::BuzzerNoTone(){
+   #ifdef USE_BUZZER
+   buzzer.noTone();
++  #ifdef PROTOPANDAEMU_EMU
++  emuDumpTone(0, 0);
++  #endif
+   return true;
+   #else
+   return false;

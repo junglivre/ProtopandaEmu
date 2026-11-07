@@ -1112,5 +1112,283 @@ class SetUartTailFiltersLedDumpTests(unittest.TestCase):
             launcher._DUMP_TAIL_BYTES = original_tail_bytes
 
 
+class ReadLatestLedBrightnessTests(unittest.TestCase):
+    """_read_latest_led_brightness() decodes LedStrip::setBrightness's
+    dump the same tail-scan way _read_latest_hub75_brightness() does,
+    picking the newest value and clamping to the real uint8_t range."""
+
+    def test_decodes_the_newest_value(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text(
+                "boot noise\n"
+                "[EMU] LED_BRIGHTNESS value=1\n"
+                "[EMU] LED_BRIGHTNESS value=64\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(launcher._read_latest_led_brightness(path), 64)
+
+    def test_missing_file_returns_none(self):
+        value = launcher._read_latest_led_brightness(Path("/nonexistent/qemu.uart.log"))
+        self.assertIsNone(value)
+
+    def test_no_lines_yet_returns_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text("boot noise, no brightness dump yet\n", encoding="utf-8")
+            self.assertIsNone(launcher._read_latest_led_brightness(path))
+
+
+class DrawLedStripScalesToConfiguredBrightnessTests(unittest.TestCase):
+    """Same reasoning as DrawHub75ScalesToConfiguredBrightnessTests: the
+    decoded LED buffer is always full-brightness, so the preview must
+    scale it down to the real configured value separately."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def _white_dump(self, count=3):
+        return {"count": count, "data": bytes((255, 255, 255)) * count}
+
+    def test_default_brightness_renders_undimmed(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        self.assertEqual(app.led_brightness, 255)
+        app._draw_led_strip(self._white_dump())
+        self.assertEqual(app._led_photo.get(0, 0), (255, 255, 255))
+
+    def test_half_brightness_dims_the_preview_proportionally(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.led_brightness = 128
+        app._draw_led_strip(self._white_dump())
+        self.assertEqual(app._led_photo.get(0, 0), (128, 128, 128))
+
+
+class Hub75InverseGammaCorrectsContrastTests(unittest.TestCase):
+    """ESP32-HUB75-MatrixPanel-I2S-DMA applies a CIE1931 gamma LUT before
+    writing bit-planes (confirmed: NO_CIE1931 is never defined in
+    Proto-panda), so HUB75_RE's decoded bytes are the post-gamma wire
+    value, not the asset's original color: a real midtone input of 128
+    only ever reaches the wire as 47. Without correction the preview
+    renders a wire-accurate but much darker image than the asset; this
+    must look close to the original instead."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_endpoints_are_unchanged(self):
+        self.assertEqual(launcher.HUB75_INVERSE_GAMMA[0], 0)
+        self.assertEqual(launcher.HUB75_INVERSE_GAMMA[255], 255)
+
+    def test_a_midtone_wire_value_is_boosted_back_toward_the_asset(self):
+        # 47 is what the real library's gamma table reduces an original
+        # 128 to (lumConvTab[128] >> 8); the preview must reconstruct
+        # something close to 128, not display the dim wire value as-is.
+        self.assertGreater(launcher.HUB75_INVERSE_GAMMA[47], 100)
+
+    def test_rendered_pixel_is_corrected_not_left_dim(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        width, height = 2, 1
+        data = bytes((47, 47, 47)) * width
+        app._draw_hub75({"seq": 1, "width": width, "height": height, "data": data})
+        r, g, b = app._hub75_left_photo.get(0, 0)
+        self.assertEqual((r, g, b), (launcher.HUB75_INVERSE_GAMMA[47],) * 3)
+        self.assertGreater(r, 47)
+
+
+class ReadNewToneEventsTests(unittest.TestCase):
+    """_read_new_tone_events() must only return events newer than the
+    caller's last-seen seq: a tone is a discrete action, and the tail
+    window holds far more history than one 50ms refresh tick, so
+    replaying an already-applied event on the next poll would restart
+    its auto-stop timer and the tone would never turn off."""
+
+    def test_decodes_every_new_event_in_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text(
+                "boot noise\n"
+                "[EMU] TONE seq=0 freq=440 duration_ms=500\n"
+                "[EMU] TONE seq=1 freq=0 duration_ms=0\n",
+                encoding="utf-8",
+            )
+            events = launcher._read_new_tone_events(path, after_seq=-1)
+            self.assertEqual(events, [(0, 440, 500), (1, 0, 0)])
+
+    def test_already_seen_events_are_excluded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text(
+                "[EMU] TONE seq=0 freq=440 duration_ms=500\n"
+                "[EMU] TONE seq=1 freq=640 duration_ms=50\n",
+                encoding="utf-8",
+            )
+            events = launcher._read_new_tone_events(path, after_seq=0)
+            self.assertEqual(events, [(1, 640, 50)])
+
+    def test_no_new_events_returns_empty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text("[EMU] TONE seq=0 freq=440 duration_ms=500\n", encoding="utf-8")
+            self.assertEqual(launcher._read_new_tone_events(path, after_seq=0), [])
+
+    def test_missing_file_returns_empty(self):
+        events = launcher._read_new_tone_events(Path("/nonexistent/qemu.uart.log"), after_seq=-1)
+        self.assertEqual(events, [])
+
+
+class ApplyToneEventTests(unittest.TestCase):
+    """_apply_tone_event() drives the speaker's current frequency and
+    schedules its own auto-stop from the event's duration, independent
+    of the firmware's own (possibly same-poll-window) stop line -- see
+    _speaker_callback/_apply_tone_event for why a start always wins a
+    guaranteed minimum audible duration."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_start_event_sets_the_frequency(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app._apply_tone_event(440, 500)
+        self.assertEqual(app._speaker_freq, 440)
+        self.root.after_cancel(app._speaker_stop_job)
+
+    def test_explicit_stop_event_silences_immediately(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app._apply_tone_event(440, 500)
+        app._apply_tone_event(0, 0)
+        self.assertEqual(app._speaker_freq, 0)
+        self.assertIsNone(app._speaker_stop_job)
+
+    def test_new_start_cancels_a_pending_auto_stop(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app._apply_tone_event(440, 50000)  # long enough it won't fire during the test
+        first_job = app._speaker_stop_job
+        app._apply_tone_event(640, 50000)
+        self.assertNotEqual(app._speaker_stop_job, first_job)
+        self.assertEqual(app._speaker_freq, 640)
+        self.root.after_cancel(app._speaker_stop_job)
+
+    def test_auto_stop_fires_after_the_scheduled_duration(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app._apply_tone_event(440, 20)
+        deadline = time.monotonic() + 1.0
+        while app._speaker_freq != 0 and time.monotonic() < deadline:
+            self.root.update()
+            time.sleep(0.01)
+        self.assertEqual(app._speaker_freq, 0)
+        self.assertIsNone(app._speaker_stop_job)
+
+
+class SelectOutputDevicePrefersPulseTests(unittest.TestCase):
+    """Same bug class as the Mic's existing "pulse" preference: PortAudio's
+    own default output can resolve to a raw ALSA hw device that bypasses
+    the desktop sound server's routing (Bluetooth headphones, a selected
+    output device) entirely, so a plain default-device OutputStream can
+    come out of the wrong speaker or not at all."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+        self.app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(self.app._after_id)
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_prefers_the_pulse_device_when_present(self):
+        class FakeSoundDevice:
+            @staticmethod
+            def query_devices():
+                return [
+                    {"name": "HD-Audio Generic", "max_output_channels": 2},
+                    {"name": "pulse", "max_output_channels": 32},
+                    {"name": "Loopback", "max_output_channels": 2},
+                ]
+        original = launcher._sounddevice
+        launcher._sounddevice = FakeSoundDevice
+        try:
+            self.assertEqual(self.app._select_output_device(), 1)
+        finally:
+            launcher._sounddevice = original
+
+    def test_falls_back_to_none_without_a_pulse_device(self):
+        class FakeSoundDevice:
+            @staticmethod
+            def query_devices():
+                return [{"name": "HD-Audio Generic", "max_output_channels": 2}]
+        original = launcher._sounddevice
+        launcher._sounddevice = FakeSoundDevice
+        try:
+            self.assertIsNone(self.app._select_output_device())
+        finally:
+            launcher._sounddevice = original
+
+    def test_none_without_sounddevice(self):
+        original = launcher._sounddevice
+        launcher._sounddevice = None
+        try:
+            self.assertIsNone(self.app._select_output_device())
+        finally:
+            launcher._sounddevice = original
+
+
+class SpeakerVolumeControlTests(unittest.TestCase):
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_changing_the_slider_updates_volume_and_label(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app._on_speaker_volume_change("0.5")
+        self.assertAlmostEqual(app._speaker_volume, 0.5, places=6)
+        self.assertEqual(app.speaker_volume_label_var.get(), "50%")
+
+    def test_volume_is_clamped_to_the_valid_range(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app._on_speaker_volume_change("5.0")
+        self.assertEqual(app._speaker_volume, 1.0)
+        app._on_speaker_volume_change("-1.0")
+        self.assertEqual(app._speaker_volume, 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

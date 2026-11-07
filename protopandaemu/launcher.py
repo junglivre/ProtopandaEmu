@@ -21,13 +21,17 @@ from typing import Any
 
 try:
     import sounddevice as _sounddevice  # type: ignore[import-untyped]
+    import numpy as _numpy  # type: ignore[import-untyped]
 except Exception:
-    # Optional dependency: the microphone VU meter/FFT-level override is
-    # the only feature that needs it (sounddevice -> PortAudio -> an
-    # actual host input device). Everything else in the launcher works
-    # with the standard library alone; this just disables the Mic button
-    # instead of crashing the whole launcher on import.
+    # Optional dependency: the microphone VU meter/FFT-level override and
+    # the speaker tone playback are the only features that need it
+    # (sounddevice -> PortAudio -> an actual host device; numpy is one of
+    # sounddevice's own hard dependencies, so it's always present
+    # alongside it). Everything else in the launcher works with the
+    # standard library alone; this just disables the Mic button and
+    # mutes the speaker instead of crashing the whole launcher on import.
     _sounddevice = None
+    _numpy = None
 
 from . import supervisor
 
@@ -88,6 +92,49 @@ LED_RE = re.compile(
 HUB75_BRIGHTNESS_RE = re.compile(
     r"\[EMU\]\s+HUB75_BRIGHTNESS\s+value=(\d+)"
 )
+# LED strip brightness (LedStrip::setBrightness/Update, src/drawing/
+# ledstrip.cpp): same story as HUB75_BRIGHTNESS_RE above -- FastLED's
+# global brightness scalar never shows up in the m_leds[] buffer
+# LED_RE decodes, so this separate dump reports the real value.
+LED_BRIGHTNESS_RE = re.compile(
+    r"\[EMU\]\s+LED_BRIGHTNESS\s+value=(\d+)"
+)
+# Speaker tone (Devices::BuzzerTone/BuzzerToneDuration/BuzzerNoTone,
+# src/tools/devices.cpp): the real board drives a piezo buzzer with a
+# square-wave PWM tone. seq is monotonic so a tail re-read never
+# replays an already-applied event; freq=0 is an explicit stop.
+TONE_RE = re.compile(
+    r"\[EMU\]\s+TONE\s+seq=(\d+)\s+freq=(-?\d+)\s+duration_ms=(-?\d+)"
+)
+# ESP32-HUB75-MatrixPanel-I2S-DMA (Proto-panda's platformio.ini lib_deps)
+# applies a CIE1931 gamma lookup table to every pixel before writing it
+# into bit-planes (NO_CIE1931 is never defined in this firmware), so the
+# bytes HUB75_RE decodes are the post-gamma wire value, not the asset's
+# original color -- an input of 128 only ever reaches the wire as 47.
+# This is the nearest-match inverse of that same table (lumConvTab in
+# the library's header; see
+# https://ledshield.wordpress.com/2012/11/13/led-brightness-to-your-eye-gamma-correction-no/),
+# applied before brightness scaling so the preview looks like the asset
+# instead of like the physically-dimmed wire signal.
+HUB75_INVERSE_GAMMA = (
+    0, 10, 19, 27, 34, 39, 44, 49, 53, 57, 60, 63, 66, 69, 72, 75,
+    77, 79, 82, 84, 86, 88, 90, 92, 94, 96, 98, 99, 101, 103, 104, 106,
+    108, 109, 111, 112, 114, 115, 116, 118, 119, 120, 122, 123, 124, 125, 127, 128,
+    129, 130, 131, 132, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145,
+    146, 147, 148, 149, 150, 151, 152, 153, 153, 154, 155, 156, 157, 158, 159, 159,
+    160, 161, 162, 163, 164, 164, 165, 166, 167, 167, 168, 169, 170, 171, 171, 172,
+    173, 173, 174, 175, 176, 176, 177, 178, 178, 179, 180, 181, 181, 182, 183, 183,
+    184, 185, 185, 186, 187, 187, 188, 188, 189, 190, 190, 191, 192, 192, 193, 193,
+    194, 195, 195, 196, 196, 197, 198, 198, 199, 199, 200, 201, 201, 202, 202, 203,
+    203, 204, 205, 205, 206, 206, 207, 207, 208, 208, 209, 209, 210, 211, 211, 212,
+    212, 213, 213, 214, 214, 215, 215, 216, 216, 217, 217, 218, 218, 219, 219, 220,
+    220, 221, 221, 222, 222, 223, 223, 224, 224, 225, 225, 226, 226, 227, 227, 228,
+    228, 228, 229, 229, 230, 230, 231, 231, 232, 232, 233, 233, 233, 234, 234, 235,
+    235, 236, 236, 237, 237, 237, 238, 238, 239, 239, 240, 240, 241, 241, 241, 242,
+    242, 243, 243, 243, 244, 244, 245, 245, 246, 246, 246, 247, 247, 248, 248, 248,
+    249, 249, 250, 250, 250, 251, 251, 252, 252, 252, 253, 253, 254, 254, 254, 255,
+)
+_SPEAKER_SAMPLERATE = 44100
 
 
 class LauncherError(RuntimeError):
@@ -261,6 +308,56 @@ def _read_latest_hub75_brightness(uart_path: pathlib.Path) -> int | None:
     return max(0, min(255, value))
 
 
+def _read_latest_led_brightness(uart_path: pathlib.Path) -> int | None:
+    """Decode the newest LED_BRIGHTNESS value from the live UART log tail.
+
+    See LED_BRIGHTNESS_RE for why this exists: same reasoning as
+    _read_latest_hub75_brightness, just for the LED strip.
+    """
+    try:
+        with uart_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - _DUMP_TAIL_BYTES))
+            tail = handle.read()
+    except OSError:
+        return None
+    text = tail.decode("utf-8", errors="replace")
+    matches = LED_BRIGHTNESS_RE.findall(text)
+    if not matches:
+        return None
+    value = int(matches[-1])
+    return max(0, min(255, value))
+
+
+def _read_new_tone_events(uart_path: pathlib.Path, after_seq: int) -> list[tuple[int, int, int]]:
+    """Return every TONE event newer than ``after_seq``, oldest first.
+
+    Unlike the level-valued dumps above (brightness, LED buffer), a tone
+    is a discrete action: re-applying an already-seen line on the next
+    poll tick (the tail window holds far more history than one 50ms
+    refresh) would re-trigger its auto-stop timer and effectively never
+    let it turn off. seq makes each event idempotent across re-reads.
+    """
+    try:
+        with uart_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - _DUMP_TAIL_BYTES))
+            tail = handle.read()
+    except OSError:
+        return []
+    text = tail.decode("utf-8", errors="replace")
+    events = []
+    for match in TONE_RE.finditer(text):
+        seq = int(match.group(1))
+        if seq <= after_seq:
+            continue
+        events.append((seq, int(match.group(2)), int(match.group(3))))
+    events.sort(key=lambda event: event[0])
+    return events
+
+
 class LauncherApp:
     """The small, testable desktop dashboard."""
 
@@ -286,6 +383,7 @@ class LauncherApp:
         self._led_photo: tk.PhotoImage | None = None
         self._last_led_dump: dict[str, Any] | None = None
         self.hub75_brightness = 255  # no dimming known yet; see _draw_hub75
+        self.led_brightness = 255  # no dimming known yet; see _draw_led_strip
         self.boop_gpio: int | None = None
         self.boop_near = False
         self._boop_default_sent = True  # no session yet, nothing pending
@@ -315,6 +413,17 @@ class LauncherApp:
         self.eq_boost_var = tk.DoubleVar(value=1.0)
         self.eq_use_mic_var = tk.BooleanVar(value=False)
         self._injection_job_id: str | None = None
+        # Speaker (piezo buzzer) playback. See TONE_RE/_read_new_tone_events
+        # for the dump protocol and _start_speaker_stream() for synthesis.
+        self._speaker_stream = None
+        self._speaker_lock = threading.Lock()
+        self._speaker_freq = 0
+        self._speaker_volume = 0.25
+        self._speaker_phase = 0.0
+        self._speaker_stop_job: str | None = None
+        self._tone_last_seq = -1
+        self.speaker_volume_var = tk.DoubleVar(value=0.25)
+        self.speaker_volume_label_var = tk.StringVar(value="25%")
 
         self.hostdir_var = tk.StringVar(value="No folder selected")
         self.firmware_var = tk.StringVar(value="Auto-detected")
@@ -600,7 +709,7 @@ class LauncherApp:
         lower = ttk.Frame(preview)
         lower.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         lower.columnconfigure(0, weight=1)
-        lower.rowconfigure(4, weight=1)
+        lower.rowconfigure(5, weight=1)
         ttk.Label(lower, text="LED strip", foreground=DARK_FG_MUTED).grid(row=0, column=0, sticky="w")
         self.led_canvas = tk.Canvas(lower, height=28, bg=DARK_CANVAS_BG,
                                     highlightthickness=1, highlightbackground=DARK_BORDER)
@@ -628,13 +737,24 @@ class LauncherApp:
         self.mic_canvas.grid(row=2, column=0, columnspan=7, sticky="ew", pady=(3, 0))
         self.mic_canvas.bind("<Configure>", lambda _e: self._draw_vu_meter())
         self._populate_mic_devices()
+        speaker_row = ttk.Frame(lower)
+        speaker_row.grid(row=3, column=0, sticky="ew", pady=(2, 4))
+        speaker_row.columnconfigure(2, weight=1)
+        ttk.Label(speaker_row, text="Speaker", foreground=DARK_FG_MUTED).grid(row=0, column=0, padx=(0, 6))
+        ttk.Label(speaker_row, text="Volume:", foreground=DARK_FG_MUTED).grid(row=0, column=1, padx=(0, 4))
+        self.speaker_volume_scale = ttk.Scale(
+            speaker_row, from_=0.0, to=1.0, orient="horizontal",
+            variable=self.speaker_volume_var, command=self._on_speaker_volume_change)
+        self.speaker_volume_scale.grid(row=0, column=2, sticky="ew")
+        ttk.Label(speaker_row, textvariable=self.speaker_volume_label_var, foreground=DARK_FG_MUTED,
+                 width=5).grid(row=0, column=3, padx=(8, 0))
         ttk.Label(lower, textvariable=self.uart_var, foreground=DARK_FG_MUTED).grid(
-            row=3, column=0, sticky="w")
+            row=4, column=0, sticky="w")
         self.uart_text = tk.Text(lower, height=9, width=149, state="disabled", wrap="none",
                                  bg=DARK_CANVAS_BG, fg=DARK_FG, insertbackground=DARK_FG,
                                  relief="solid", borderwidth=1, highlightthickness=1,
                                  highlightbackground=DARK_BORDER, padx=6, pady=4)
-        self.uart_text.grid(row=4, column=0, sticky="nsew")
+        self.uart_text.grid(row=5, column=0, sticky="nsew")
 
     def _lock_aspect_ratio(self) -> None:
         # "Diagonal-only" resize: lock the window's min and max interactive
@@ -1021,6 +1141,85 @@ class LauncherApp:
         # if the Equalizer is still open, its own tick (already scheduled)
         # keeps driving every band -- nothing more to release here.
 
+    def _on_speaker_volume_change(self, value: str) -> None:
+        volume = max(0.0, min(1.0, float(value)))
+        with self._speaker_lock:
+            self._speaker_volume = volume
+        self.speaker_volume_label_var.set(f"{int(round(volume * 100))}%")
+
+    def _speaker_callback(self, outdata, frames, time_info, status):  # noqa: ANN001 - sounddevice callback signature
+        with self._speaker_lock:
+            freq = self._speaker_freq
+            volume = self._speaker_volume
+        if freq <= 0 or volume <= 0:
+            outdata[:, 0] = 0.0
+            return
+        phase_inc = freq / _SPEAKER_SAMPLERATE
+        phases = self._speaker_phase + _numpy.arange(frames) * phase_inc
+        cycle = phases % 1.0
+        # Square wave: the real board drives the piezo at a fixed 50% PWM
+        # duty cycle (ToneESP32::tone(), src/tools/s3servo.cpp), not a
+        # smooth sine -- this reproduces the actual buzzer timbre.
+        outdata[:, 0] = _numpy.where(cycle < 0.5, volume, -volume).astype("float32")
+        self._speaker_phase = float(phases[-1] + phase_inc) % 1.0
+
+    def _select_output_device(self) -> int | None:
+        # Same reasoning as _populate_mic_devices' "pulse" preference:
+        # PortAudio's own default output can resolve to a raw ALSA hw
+        # device that bypasses the desktop sound server's routing
+        # entirely (Bluetooth headphones, a selected output device,
+        # etc.), so the tone can come out of the wrong speaker or not
+        # at all. Prefer the "pulse" plugin device when it exists.
+        if _sounddevice is None:
+            return None
+        try:
+            for index, dev in enumerate(_sounddevice.query_devices()):
+                if dev.get("max_output_channels", 0) > 0 and \
+                        (dev.get("name") or "").strip().lower() == "pulse":
+                    return index
+        except Exception:
+            pass
+        return None
+
+    def _start_speaker_stream(self) -> None:
+        if _sounddevice is None or self._speaker_stream is not None:
+            return
+        try:
+            self._speaker_stream = _sounddevice.OutputStream(
+                channels=1, samplerate=_SPEAKER_SAMPLERATE, blocksize=1024,
+                device=self._select_output_device(), callback=self._speaker_callback)
+            self._speaker_stream.start()
+        except Exception:
+            # Best-effort: no host output device is not worth blocking a
+            # session start over, same spirit as the Mic button staying
+            # usable without sounddevice. The speaker just stays silent.
+            self._speaker_stream = None
+
+    def _stop_speaker_stream(self) -> None:
+        if self._speaker_stop_job is not None:
+            self.root.after_cancel(self._speaker_stop_job)
+            self._speaker_stop_job = None
+        if self._speaker_stream is not None:
+            self._speaker_stream.stop()
+            self._speaker_stream.close()
+            self._speaker_stream = None
+        with self._speaker_lock:
+            self._speaker_freq = 0
+
+    def _apply_tone_event(self, freq: int, duration_ms: int) -> None:
+        if self._speaker_stop_job is not None:
+            self.root.after_cancel(self._speaker_stop_job)
+            self._speaker_stop_job = None
+        with self._speaker_lock:
+            self._speaker_freq = max(0, freq)
+        if freq > 0 and duration_ms > 0:
+            self._speaker_stop_job = self.root.after(duration_ms, self._speaker_auto_stop)
+
+    def _speaker_auto_stop(self) -> None:
+        self._speaker_stop_job = None
+        with self._speaker_lock:
+            self._speaker_freq = 0
+
     def _rms_to_level(self, rms: float) -> float:
         gain = max(0.1, self.mic_gain_var.get())
         db = 20.0 * math.log10(max(rms * gain, 1e-6))
@@ -1197,6 +1396,8 @@ class LauncherApp:
         self.session_var.set(f"Session: {report['session_id']}\nProfile hash: {report['profile_hash']}")
         self.status_var.set("Session started. Waiting for backend dumps.")
         self.boop_near = False
+        self._tone_last_seq = -1  # firmware's own seq counter also restarts at 0 on boot
+        self._start_speaker_stream()
         # Sending the override now would race the guest: the console
         # parser only reads Serial once loop() is running, and bytes
         # arriving during the ROM bootloader/setup() window can be lost.
@@ -1219,6 +1420,7 @@ class LauncherApp:
             self.status_var.set(f"Session finished: {report.get('exit_reason')}")
             self.start_button.configure(state="normal")
             self.stop_button.configure(state="disabled")
+            self._stop_speaker_stream()
             return report
         except Exception as exc:  # keep the dashboard alive for a reportable backend failure
             self.status_var.set(f"Error stopping session: {exc}")
@@ -1267,9 +1469,17 @@ class LauncherApp:
                 if brightness is not None and brightness != self.hub75_brightness:
                     self.hub75_brightness = brightness
                     self._redraw_hub75_from_cache()
+                led_brightness = _read_latest_led_brightness(uart_path)
+                if led_brightness is not None and led_brightness != self.led_brightness:
+                    self.led_brightness = led_brightness
+                    self._redraw_led_strip_from_cache()
+                for seq, freq, duration_ms in _read_new_tone_events(uart_path, self._tone_last_seq):
+                    self._tone_last_seq = seq
+                    self._apply_tone_event(freq, duration_ms)
             if report.get("exit_reason") and self.handle is not None:
                 self.start_button.configure(state="normal")
                 self.stop_button.configure(state="disabled")
+                self._stop_speaker_stream()
         except Exception as exc:  # keep the dashboard alive for a reportable backend failure
             self.status_var.set(f"Preview error: {exc}")
 
@@ -1348,18 +1558,21 @@ class LauncherApp:
 
     def _draw_hub75_half(self, canvas: tk.Canvas, data: bytes, full_width: int, height: int,
                          x0: int, x1: int, side: str) -> None:
-        # Scale to the real configured panel brightness (see
-        # HUB75_BRIGHTNESS_RE): the decoded color data itself is always
-        # full/undimmed, since brightness is a separate OE/blanking signal
-        # this backend's decoder can't see.
+        # Undo the library's CIE1931 gamma (HUB75_INVERSE_GAMMA) first so
+        # this looks like the asset instead of the physically-dimmed wire
+        # signal, then scale to the real configured panel brightness (see
+        # HUB75_BRIGHTNESS_RE): the color data itself is always
+        # full/undimmed, since brightness is a separate OE/blanking
+        # signal this backend's decoder can't see.
+        gamma = HUB75_INVERSE_GAMMA
         br = self.hub75_brightness
         rows = []
         for y in range(height):
             base = y * full_width * 3
             pixels = (
-                f"#{data[base + i * 3] * br // 255:02x}"
-                f"{data[base + i * 3 + 1] * br // 255:02x}"
-                f"{data[base + i * 3 + 2] * br // 255:02x}"
+                f"#{gamma[data[base + i * 3]] * br // 255:02x}"
+                f"{gamma[data[base + i * 3 + 1]] * br // 255:02x}"
+                f"{gamma[data[base + i * 3 + 2]] * br // 255:02x}"
                 for i in range(x0, x1))
             rows.append(" ".join(pixels))
         w = x1 - x0
@@ -1379,12 +1592,18 @@ class LauncherApp:
             self._draw_led_strip(self._last_led_dump)
 
     def _draw_led_strip(self, dump: dict[str, Any]) -> None:
+        # Scale to the real configured strip brightness (see
+        # LED_BRIGHTNESS_RE): the decoded buffer itself is always
+        # full/undimmed, since brightness is a separate FastLED global
+        # scalar this dump can't see.
         canvas = self.led_canvas
         count, data = dump["count"], dump["data"]
         if count <= 0 or len(data) != count * 3:
             return
+        br = self.led_brightness
         row = " ".join(
-            f"#{data[i * 3]:02x}{data[i * 3 + 1]:02x}{data[i * 3 + 2]:02x}" for i in range(count))
+            f"#{data[i * 3] * br // 255:02x}{data[i * 3 + 1] * br // 255:02x}"
+            f"{data[i * 3 + 2] * br // 255:02x}" for i in range(count))
         photo = tk.PhotoImage(width=count, height=1)
         photo.put(f"{{{row}}}")
         canvas_width = max(1, canvas.winfo_width())
@@ -1400,6 +1619,7 @@ class LauncherApp:
         self._stop_button_hold()
         if self._mic_active:
             self._stop_mic_capture()
+        self._stop_speaker_stream()
         if self.eq_window is not None:
             self._close_equalizer()
         if self.handle is not None and self.handle.session_report().get("exit_reason") is None:

@@ -41,8 +41,8 @@ decodificador HUB75 já verificado.
 | Persistência | Flash e SD privado preservados entre parada limpa e reinício. |
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
-| HUB75 | Decodificador verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); um bug de descritor sentinela que duplicava quadros densos em quadrantes espelhados está corrigido. Conteúdo animado real é capturado de ponta a ponta (`artifacts/mvp/hub75-real-content-proof/`). Os dados de cor decodificados são sempre em brilho máximo (brilho é um sinal separado de OE/blanking que este decodificador não vê); o launcher escala a prévia pro brilho real configurado separadamente, veja abaixo. |
-| Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual, um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`, uma prévia ao vivo da fita de LED (captura de buffer do firmware, veja abaixo), e um VU meter de microfone que captura o microfone do host e injeta o nível como a leitura de energia de fala do FFT do firmware, veja abaixo. |
+| HUB75 | Decodificador verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); um bug de descritor sentinela que duplicava quadros densos em quadrantes espelhados está corrigido. Conteúdo animado real é capturado de ponta a ponta (`artifacts/mvp/hub75-real-content-proof/`). Os dados de cor decodificados são sempre em brilho máximo (brilho é um sinal separado de OE/blanking que este decodificador não vê); o launcher escala a prévia pro brilho real configurado separadamente, veja abaixo. Os bytes decodificados também são o valor pós-gama da biblioteca do painel (ela sempre aplica correção CIE1931 antes de escrever nos bit-planes), então o launcher aplica a inversa dessa mesma tabela antes de exibir -- senão a prévia fica bem mais escura/sem contraste que o asset original. |
+| Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual, um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`, uma prévia ao vivo da fita de LED (captura de buffer do firmware, veja abaixo) com o brilho real configurado aplicado, um controle de Speaker que toca o tom real do buzzer piezo (beeps de boot/menu/boop) na saída de áudio do host com um slider de volume, e um VU meter de microfone que captura o microfone do host e injeta o nível como a leitura de energia de fala do FFT do firmware, veja abaixo. |
 
 **Lacunas conhecidas** (hardware não emulado ou não verificado, não bugs de backend):
 
@@ -201,19 +201,31 @@ de WS2812 via `FastLED.show()` continua stubada (o modelo de RMT do
 QEMU completa a transação mas não decodifica o timing do sinal, então
 não há fio pra acender); em vez disso despeja o buffer de cor real que
 `LedStrip::Display()` calcula no console (limitada a 100ms, filtrada
-por mudança), pra prévia de LED ao vivo abaixo. Uma linha de console
-separada, também sempre ligada
-(`[EMU] HUB75_BRIGHTNESS value=<0-255>`), reporta toda mudança real de
-brilho do painel -- tanto `Devices::SetMaxBrightness` (a rampa suave do
-boot) quanto o binding Lua separado `setPanelBrightness` (o slider de
-brilho do menu de configurações e qualquer outra mudança em tempo real;
-ele escreve direto no driver do display e nunca chama
-`SetMaxBrightness`, por isso precisou do próprio hook) -- limitada e
-filtrada por mudança da mesma forma; o launcher escala a prévia
-decodificada (sempre em brilho máximo) por esse valor. Nenhuma
-configuração de firmware, pino ou dado do SD é editado para fazer nada
-disso funcionar — o perfil da placa e as atribuições de GPIO continuam
-reais.
+por mudança), pra prévia de LED ao vivo abaixo. A mesma lacuna de
+brilho se aplica à fita de LED: `FastLED.setBrightness()` é um escalar
+global separado nunca gravado no buffer de cor, então uma segunda
+linha de console (`[EMU] LED_BRIGHTNESS value=<0-255>`) reporta isso
+tanto de `LedStrip::setBrightness()` quanto do passo de rampa suave em
+`Update()`. Da mesma forma pro HUB75, uma linha de console separada,
+também sempre ligada (`[EMU] HUB75_BRIGHTNESS value=<0-255>`), reporta
+toda mudança real de brilho do painel -- tanto `Devices::SetMaxBrightness`
+(a rampa suave do boot) quanto o binding Lua separado
+`setPanelBrightness` (o slider de brilho do menu de configurações e
+qualquer outra mudança em tempo real; ele escreve direto no driver do
+display e nunca chama `SetMaxBrightness`, por isso precisou do próprio
+hook) -- limitada e filtrada por mudança da mesma forma; o launcher
+escala cada prévia decodificada (sempre em brilho máximo) pelo seu
+próprio valor. O buzzer piezo real da placa é um tom PWM de onda
+quadrada (`ToneESP32::tone()`), também não modelado pelo periférico
+PWM/LEDC deste backend; `Devices::BuzzerTone`/`BuzzerToneDuration`/
+`BuzzerNoTone` despejam uma terceira linha de console (`[EMU] TONE
+seq=<n> freq=<hz> duration_ms=<ms>`, freq=0 significa parar) a cada
+chamada -- sem limitação de taxa, já que são eventos de UI pontuais,
+não estado por frame -- que o controle Speaker do launcher (veja
+abaixo) sintetiza como a mesma onda quadrada na própria saída de
+áudio do host. Nenhuma configuração de firmware, pino ou dado do SD é
+editado para fazer nada disso funcionar — o perfil da placa e as
+atribuições de GPIO continuam reais.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/caminho/para/seu/fork \
@@ -233,7 +245,14 @@ tem efeito em configs de boop no modo lidar, que não têm pino digital
 pra sobrepor. Abaixo da prévia HUB75/OLED, uma linha de fita de LED
 renderiza as cores reais que `LedStrip::Display()` calculou (não é um
 traço de tráfego de hardware verificado como HUB75/OLED, veja Estado
-atual acima) para cartões SD que acionam saída WS2812. Abaixo disso, um
+atual acima) para cartões SD que acionam saída WS2812, escalada pro
+brilho real configurado da fita da mesma forma que a prévia HUB75. Uma
+linha de Speaker ao lado tem um slider de volume e toca o tom real de
+onda quadrada do buzzer piezo (melodia de boot, cliques de navegação
+do menu, feedback do boop, chimes de conectar/desconectar BLE) na
+saída de áudio padrão do host via o mesmo pacote `sounddevice` que o
+Mic usa abaixo; fica silencioso se esse pacote ou um device de saída
+utilizável não estiver disponível, igual ao Mic. Abaixo disso, um
 dropdown "Input" lista os microfones disponíveis no host
 (`sounddevice.query_devices()`); quando existe um device "pulse" ele é
 pré-selecionado em vez do "default" do PortAudio, que num desktop
