@@ -458,3 +458,10 @@
   line carries a full per-frame hex color buffer and was drowning out
   everything else in the panel. The strip preview itself is unaffected
   -- it reads the underlying log file directly, not this display copy.
+- Set PROTOPANDAEMU_QUIET_UART by default when the GUI starts. The
+  previous UART-panel filter only covered the GUI's own text widget;
+  `supervisor._drain_uart` separately echoes every raw byte to the
+  host terminal too (intentional for the headless CLI, which has no
+  other live output), so the launcher still flooded a real terminal
+  with LED_DUMP lines even after that fix. An explicit override still
+  wins. Verified on a real boot: zero UART bytes reached stdout.
