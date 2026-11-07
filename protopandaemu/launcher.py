@@ -237,6 +237,7 @@ class LauncherApp:
         self.boop_gpio: int | None = None
         self.boop_near = False
         self._boop_default_sent = True  # no session yet, nothing pending
+        self._hold_repeat_id: str | None = None
 
         self.hostdir_var = tk.StringVar(value="No folder selected")
         self.firmware_var = tk.StringVar(value="Auto-detected")
@@ -490,22 +491,32 @@ class LauncherApp:
         # which is how the buttons stopped being square. Leaving weight at
         # the default (0) keeps every button at its natural, compact,
         # roughly 1:1 size regardless of how much room the column has.
+        # D-pad/Back/Aux inject one virtual IR command per click, but the
+        # firmware's own button_timeout auto-releases 250ms after the last
+        # injected code (input.lua's press()) -- a single click only ever
+        # held the button for 250ms regardless of how long the mouse stayed
+        # down. Binding press/release instead of a one-shot command and
+        # re-injecting every 150ms while held keeps the firmware's timeout
+        # continuously refreshed, matching a real remote's repeat pulses.
         dpad = {"▲": "B9", "◀": "BB", "OK": "BF", "▶": "BC", "▼": "EA"}
         positions = {"▲": (0, 1), "◀": (1, 0), "OK": (1, 1), "▶": (1, 2), "▼": (2, 1)}
         for label, (row, col) in positions.items():
             code = dpad[label]
-            ttk.Button(controller, text=label, width=3, style="Dpad.TButton",
-                      command=lambda code=code: self.send_virtual_button(code)).grid(
-                row=row, column=col, padx=2, pady=2)
+            btn = ttk.Button(controller, text=label, width=3, style="Dpad.TButton")
+            btn.grid(row=row, column=col, padx=2, pady=2)
+            btn.bind("<ButtonPress-1>", lambda _e, code=code: self._start_button_hold(code))
+            btn.bind("<ButtonRelease-1>", lambda _e: self._stop_button_hold())
         self.boop_button = ttk.Button(controller, text="Boop", width=6,
                                       command=self._toggle_boop)
         self.boop_button.grid(row=3, column=0, padx=2, pady=(8, 0))
-        ttk.Button(controller, text="Back", width=4,
-                  command=lambda: self.send_virtual_button("E6")).grid(
-            row=3, column=1, padx=2, pady=(8, 0))
-        ttk.Button(controller, text="Aux", width=6,
-                  command=lambda: self.send_virtual_button("BA")).grid(
-            row=3, column=2, padx=2, pady=(8, 0))
+        back_btn = ttk.Button(controller, text="Back", width=4)
+        back_btn.grid(row=3, column=1, padx=2, pady=(8, 0))
+        back_btn.bind("<ButtonPress-1>", lambda _e: self._start_button_hold("E6"))
+        back_btn.bind("<ButtonRelease-1>", lambda _e: self._stop_button_hold())
+        aux_btn = ttk.Button(controller, text="Aux", width=6)
+        aux_btn.grid(row=3, column=2, padx=2, pady=(8, 0))
+        aux_btn.bind("<ButtonPress-1>", lambda _e: self._start_button_hold("BA"))
+        aux_btn.bind("<ButtonRelease-1>", lambda _e: self._stop_button_hold())
 
         lower = ttk.Frame(preview)
         lower.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
@@ -715,6 +726,26 @@ class LauncherApp:
             return
         if not self.handle.send_serial_input(f"IR:FF00:{code}\n"):
             self.status_var.set("Failed to write to the session console.")
+
+    def _start_button_hold(self, code: str) -> None:
+        """Begin repeat-injecting a virtual button while the mouse is held.
+
+        A single injected IR command only ever holds the firmware's button
+        state for 250ms (input.lua's press() refreshes button_timeout to
+        now+250ms on each decoded command, same as a real remote's repeat
+        pulses would); re-injecting well inside that window for as long as
+        the mouse button stays down is what makes a press-and-hold actually
+        register as held instead of a 250ms tap regardless of hold length.
+        """
+        self._stop_button_hold()
+        self.send_virtual_button(code)
+        self._hold_repeat_id = self.root.after(150, lambda: self._start_button_hold(code))
+
+    def _stop_button_hold(self) -> None:
+        if self._hold_repeat_id is not None:
+            self.root.after_cancel(self._hold_repeat_id)
+            self._hold_repeat_id = None
+
 
     def _toggle_boop(self) -> None:
         """Flip the simulated proximity sensor between far (0) and near (1).
@@ -927,6 +958,7 @@ class LauncherApp:
     def close(self) -> None:
         if self._after_id is not None:
             self.root.after_cancel(self._after_id)
+        self._stop_button_hold()
         if self.handle is not None and self.handle.session_report().get("exit_reason") is None:
             self.stop_session()
         self.root.destroy()
