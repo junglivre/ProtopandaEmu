@@ -44,9 +44,17 @@ relies on the same already-verified HUB75 decoder.
 
 **Known gaps** (unemulated or unverified hardware, not backend bugs):
 
-- **Microphone/FFT input (continuous ADC) is unverified** — whether
-  QEMU's ADC model produces meaningful samples or just static/noise has
-  not been tested. Voice-reactive behavior can't be validated here yet.
+- **Microphone/FFT input never produces a real sample.** This backend
+  only models the single-shot SAR ADC peripheral
+  (`backend/qemu/new-files/hw/misc/esp32s3_sens.c`, `docs/qemu-adc-spike.md`)
+  that a different firmware subsystem polls during boot calibration;
+  there is no model for the continuous/DMA-mode ADC `fft.cpp`'s
+  microphone sampling requires (`adc_continuous_read`). Firmware with
+  `misc.json`'s `fft.enabled: true` boots and runs normally (confirmed
+  against a real user SD card: `[FFT] begin()`/`started` log lines,
+  no hang or crash), but `readAndAnalyse()` silently no-ops on every
+  `ESP_ERR_TIMEOUT` with no error logged — expect voice-reactive
+  behavior to simply never trigger, not to glitch or crash.
 - **Servo output has no visual feedback.** The firmware writes a real
   PWM duty cycle; the launcher has no way to show the resulting angle.
 - **BLE input mode is not supported** (no NimBLE/Bluedroid radio model);
@@ -235,14 +243,11 @@ A probe can report a blocker or `NOT_EXECUTED`; neither means the firmware passe
 
 ## Next steps
 
-1. Microphone/FFT input (continuous ADC) is unverified against this
-   backend's ADC model — unknown whether it yields anything usable for
-   voice-reactive behavior.
-2. A formal, six-permutation golden-frame comparator for the pinned
+1. A formal, six-permutation golden-frame comparator for the pinned
    v3.4.0 track's own HUB75 acceptance check was never built; it isn't
    required for the as-is workflow, which already captures and verifies
    real animated content end to end.
-3. BLE input and web/edit-mode tooling remain out of scope — no radio
+2. BLE input and web/edit-mode tooling remain out of scope — no radio
    model exists for this backend.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for implemented changes.

@@ -46,9 +46,19 @@ decodificador HUB75 já verificado.
 
 **Lacunas conhecidas** (hardware não emulado ou não verificado, não bugs de backend):
 
-- **A entrada de microfone/FFT (ADC contínuo) não foi verificada** — se
-  o modelo de ADC do QEMU produz amostras úteis ou só ruído/estático não
-  foi testado. Comportamento reativo a voz não dá pra validar aqui ainda.
+- **A entrada de microfone/FFT nunca produz uma amostra real.** Este
+  backend só modela o periférico ADC SAR single-shot
+  (`backend/qemu/new-files/hw/misc/esp32s3_sens.c`,
+  `docs/qemu-adc-spike.md`) que outro subsistema do firmware consulta
+  durante a calibração do boot; não existe modelo pro ADC
+  contínuo/DMA que a amostragem de microfone do `fft.cpp` exige
+  (`adc_continuous_read`). Firmware com `fft.enabled: true` no
+  `misc.json` inicializa e roda normalmente (confirmado contra um
+  cartão SD real do usuário: linhas de log `[FFT] begin()`/`started`,
+  sem travar ou crashar), mas `readAndAnalyse()` simplesmente não faz
+  nada a cada `ESP_ERR_TIMEOUT`, sem logar erro — espere que
+  comportamento reativo a voz simplesmente nunca dispare, não que
+  trave ou falhe.
 - **A saída de servo não tem feedback visual.** O firmware escreve um
   duty cycle de PWM real; o launcher não tem como mostrar o ângulo
   resultante.
@@ -239,14 +249,11 @@ Um teste pode registrar um bloqueio ou `NOT_EXECUTED`; nenhum desses resultados 
 
 ## Próximos passos
 
-1. A entrada de microfone/FFT (ADC contínuo) não foi verificada contra
-   o modelo de ADC deste backend — não se sabe se produz algo útil pra
-   comportamento reativo a voz.
-2. Um comparador formal de quadro-padrão com seis permutações pro
+1. Um comparador formal de quadro-padrão com seis permutações pro
    próprio check de aceitação HUB75 do trilho v3.4.0 fixado nunca foi
    construído; não é necessário pro fluxo como-está, que já captura e
    verifica conteúdo animado real de ponta a ponta.
-3. Entrada BLE e ferramentas web/modo-edição seguem fora de escopo —
+2. Entrada BLE e ferramentas web/modo-edição seguem fora de escopo —
    não existe modelo de rádio pra este backend.
 
 Consulte o [`CHANGELOG.md`](CHANGELOG.md) para ver as alterações implementadas.
