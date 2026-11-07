@@ -224,3 +224,24 @@
   hang or crash across multiple full sessions this round), it just never
   sees real audio. README/README.pt-BR.md updated from "unverified" to
   this definitive finding.
+- Fix virtual D-pad/Back/Aux buttons only ever registering as a 250ms tap
+  regardless of how long the mouse stayed down. A single injected IR
+  command refreshes the firmware's own `button_timeout` to
+  `now+250ms` (`input.lua`'s `press()`) and auto-releases once that
+  elapses, exactly matching a real remote's single pulse; holding the
+  mouse down never re-injected, so a held press always looked identical
+  to a tap from the guest's point of view. Buttons now bind
+  press/release and re-inject every 150ms while held, well inside the
+  firmware's own window, the same way a real remote's repeat pulses
+  would. Regression tests: `tests/test_launcher.py::ButtonHoldRepeatTests`.
+- Measured, not fixed: the HUB75 preview "looking dark" is the real
+  content, not a brightness bug. `setBrightness8()` (the library backing
+  this firmware's configurable panel brightness) dims via the OE/blanking
+  pin's duty cycle, a separate signal this backend's HUB75 decoder never
+  reads -- it only decodes the color bit-plane DMA data, so the preview
+  already always reconstructs full, undimmed per-pixel color regardless
+  of the real panel's configured brightness. A real captured frame from
+  the user's own SD card measured a full 0-255 dynamic range (max byte
+  255, mean of nonzero bytes 170); the dark appearance is ~91% of the
+  frame being zero (black background behind a small mascot icon), which
+  is the actual content, not under-rendered brightness.

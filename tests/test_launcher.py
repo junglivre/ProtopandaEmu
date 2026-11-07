@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import tkinter as tk
 import unittest
 from pathlib import Path
@@ -402,6 +403,67 @@ class DeferredBoopDefaultOverrideTests(unittest.TestCase):
         app.refresh()
         self.root.after_cancel(app._after_id)
         self.assertEqual(app.handle.sent, ["GPIO:2:0\n"])
+
+
+
+class ButtonHoldRepeatTests(unittest.TestCase):
+    """D-pad/Back/Aux must keep injecting while the mouse stays down, not
+    just once per click: the firmware's own press() (input.lua) refreshes
+    its button_timeout to now+250ms on each decoded command and
+    auto-releases once that elapses, so a single injection only ever holds
+    the button for 250ms regardless of how long the real mouse button
+    stays down. _start_button_hold() must re-inject well inside that
+    window for as long as it keeps getting called, and _stop_button_hold()
+    must actually stop further injections, not just leave a stale handle."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_start_sends_immediately_and_repeat_calls_send_again(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.handle = FakeSerialHandle()
+
+        app._start_button_hold("B9")
+        self.assertEqual(app.handle.sent, ["IR:FF00:B9\n"])
+        self.assertIsNotNone(app._hold_repeat_id)
+
+        # Simulates the scheduled repeat tick firing while still held.
+        app._start_button_hold("B9")
+        self.assertEqual(app.handle.sent, ["IR:FF00:B9\n", "IR:FF00:B9\n"])
+        self.assertIsNotNone(app._hold_repeat_id)
+
+        app._stop_button_hold()
+        self.assertIsNone(app._hold_repeat_id)
+
+    def test_real_hold_keeps_injecting_until_released(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.handle = FakeSerialHandle()
+
+        app._start_button_hold("BF")
+        # Pump the real Tk event loop past several 150ms repeat intervals;
+        # a held button must keep sending, not just the initial injection.
+        deadline = time.monotonic() + 0.4
+        while time.monotonic() < deadline:
+            self.root.update()
+            time.sleep(0.02)
+        self.assertGreater(len(app.handle.sent), 1)
+
+        app._stop_button_hold()
+        sent_at_release = len(app.handle.sent)
+        deadline = time.monotonic() + 0.3
+        while time.monotonic() < deadline:
+            self.root.update()
+            time.sleep(0.02)
+        self.assertEqual(len(app.handle.sent), sent_at_release)
 
 
 class DrawHub75SplitsLeftRightHalvesTests(unittest.TestCase):
