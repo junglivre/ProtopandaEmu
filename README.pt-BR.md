@@ -41,7 +41,7 @@ decodificador HUB75 já verificado.
 | Persistência | Flash e SD privado preservados entre parada limpa e reinício. |
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
-| HUB75 | Decodificador verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); um bug de descritor sentinela que duplicava quadros densos em quadrantes espelhados está corrigido. Conteúdo animado real é capturado de ponta a ponta (`artifacts/mvp/hub75-real-content-proof/`). |
+| HUB75 | Decodificador verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); um bug de descritor sentinela que duplicava quadros densos em quadrantes espelhados está corrigido. Conteúdo animado real é capturado de ponta a ponta (`artifacts/mvp/hub75-real-content-proof/`). Os dados de cor decodificados são sempre em brilho máximo (brilho é um sinal separado de OE/blanking que este decodificador não vê); o launcher escala a prévia pro brilho real configurado separadamente, veja abaixo. |
 | Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual, um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`, e uma prévia ao vivo opcional da fita de LED (captura de buffer do firmware, veja abaixo). |
 
 **Lacunas conhecidas** (hardware não emulado ou não verificado, não bugs de backend):
@@ -201,9 +201,14 @@ UART) despeja adicionalmente o buffer de cor real que
 abaixo; defina
 `PLATFORMIO_BUILD_FLAGS="-DPROTOPANDAEMU_EMU_LED_DUMP"` antes de rodar
 `build-firmware-emu.sh` pra ligar, sem editar nenhum arquivo da árvore
-de origem. Nenhuma configuração de firmware, pino ou dado do SD é
-editado para fazer nada disso funcionar — o perfil da placa e as
-atribuições de GPIO continuam reais.
+de origem. Uma terceira linha de console, sempre ligada
+(`[EMU] HUB75_BRIGHTNESS value=<0-255>`), reporta toda mudança real de
+brilho do painel (`Devices::SetMaxBrightness`, direta ou a rampa suave
+por quadro), limitada e filtrada por mudança da mesma forma; o launcher
+escala a prévia decodificada (sempre em brilho máximo) por esse valor.
+Nenhuma configuração de firmware, pino ou dado do SD é editado para
+fazer nada disso funcionar — o perfil da placa e as atribuições de GPIO
+continuam reais.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/caminho/para/seu/fork \

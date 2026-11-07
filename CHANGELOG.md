@@ -245,3 +245,18 @@
   255, mean of nonzero bytes 170); the dark appearance is ~91% of the
   frame being zero (black background behind a small mascot icon), which
   is the actual content, not under-rendered brightness.
+- Scale the HUB75 preview to the real configured panel brightness.
+  Following up on the "measured, not fixed" entry above: the decoded
+  color data is always full-brightness (this backend's decoder can't see
+  the real OE/blanking dimming signal), but the firmware DOES pass
+  through one C++ choke point for every brightness change, direct or the
+  gentle per-frame ramp (`Devices::SetMaxBrightness`,
+  `src/tools/devices.cpp`) -- firmware-emu patch 0014 dumps that value,
+  throttled and change-gated the same way the LED dump is, and the
+  launcher scales the already-decoded frame by it before rendering.
+  Regression tests: `tests/test_launcher.py::ReadLatestHub75BrightnessTests`,
+  `DrawHub75ScalesToConfiguredBrightnessTests`. Verified against a real
+  boot on the user's own SD card: the startup ramp logged 0 -> 29 -> 70
+  -> 118 -> 164 (throttled to 5 lines for the whole ramp, not one per
+  frame), and the rendered preview's sampled max channel value tracked
+  the decoded brightness exactly (164/255 of the raw 255 max).

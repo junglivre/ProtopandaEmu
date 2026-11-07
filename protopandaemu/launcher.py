@@ -67,6 +67,15 @@ HUB75_RE = re.compile(
 LED_RE = re.compile(
     r"\[EMU\]\s+LED_DUMP\s+count=(\d+)\s+hex=([0-9a-fA-F]+)"
 )
+# HUB75 panel brightness (Devices::SetMaxBrightness, src/tools/devices.cpp):
+# the real panel dims via the OE/blanking pin's duty cycle, which never
+# appears in the color bit-plane DMA data HUB75_RE decodes, so the preview
+# always reconstructs full, undimmed color on its own. This separate dump
+# reports the real configured brightness value so the launcher can scale
+# the already-decoded frame to match what the panel would actually show.
+HUB75_BRIGHTNESS_RE = re.compile(
+    r"\[EMU\]\s+HUB75_BRIGHTNESS\s+value=(\d+)"
+)
 
 
 class LauncherError(RuntimeError):
@@ -216,6 +225,30 @@ def _read_latest_led_dump(uart_path: pathlib.Path) -> dict[str, Any] | None:
     return None
 
 
+def _read_latest_hub75_brightness(uart_path: pathlib.Path) -> int | None:
+    """Decode the newest HUB75_BRIGHTNESS value from the live UART log tail.
+
+    See HUB75_BRIGHTNESS_RE for why this exists: the real panel's
+    brightness never shows up in the color bit-plane DMA data HUB75_RE
+    already decodes, so this is a second, independent dump of the one
+    value that actually controls it (Devices::SetMaxBrightness).
+    """
+    try:
+        with uart_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - _DUMP_TAIL_BYTES))
+            tail = handle.read()
+    except OSError:
+        return None
+    text = tail.decode("utf-8", errors="replace")
+    matches = HUB75_BRIGHTNESS_RE.findall(text)
+    if not matches:
+        return None
+    value = int(matches[-1])
+    return max(0, min(255, value))
+
+
 class LauncherApp:
     """The small, testable desktop dashboard."""
 
@@ -234,6 +267,7 @@ class LauncherApp:
         self._hub75_right_photo: tk.PhotoImage | None = None
         self._led_photo: tk.PhotoImage | None = None
         self._last_led_dump: dict[str, Any] | None = None
+        self.hub75_brightness = 255  # no dimming known yet; see _draw_hub75
         self.boop_gpio: int | None = None
         self.boop_near = False
         self._boop_default_sent = True  # no session yet, nothing pending
@@ -856,6 +890,10 @@ class LauncherApp:
                 if led:
                     self._last_led_dump = led
                     self._draw_led_strip(led)
+                brightness = _read_latest_hub75_brightness(uart_path)
+                if brightness is not None and brightness != self.hub75_brightness:
+                    self.hub75_brightness = brightness
+                    self._redraw_hub75_from_cache()
             if report.get("exit_reason") and self.handle is not None:
                 self.start_button.configure(state="normal")
                 self.stop_button.configure(state="disabled")
@@ -917,11 +955,19 @@ class LauncherApp:
 
     def _draw_hub75_half(self, canvas: tk.Canvas, data: bytes, full_width: int, height: int,
                          x0: int, x1: int, side: str) -> None:
+        # Scale to the real configured panel brightness (see
+        # HUB75_BRIGHTNESS_RE): the decoded color data itself is always
+        # full/undimmed, since brightness is a separate OE/blanking signal
+        # this backend's decoder can't see.
+        br = self.hub75_brightness
         rows = []
         for y in range(height):
             base = y * full_width * 3
-            pixels = (f"#{data[base + i * 3]:02x}{data[base + i * 3 + 1]:02x}{data[base + i * 3 + 2]:02x}"
-                     for i in range(x0, x1))
+            pixels = (
+                f"#{data[base + i * 3] * br // 255:02x}"
+                f"{data[base + i * 3 + 1] * br // 255:02x}"
+                f"{data[base + i * 3 + 2] * br // 255:02x}"
+                for i in range(x0, x1))
             rows.append(" ".join(pixels))
         w = x1 - x0
         photo = tk.PhotoImage(width=w, height=height)

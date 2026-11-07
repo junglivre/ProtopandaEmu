@@ -39,7 +39,7 @@ relies on the same already-verified HUB75 decoder.
 | Persistent state | Flash and private SD state survive a clean stop and restart. |
 | Folder-backed storage | A chosen folder becomes the firmware's SD card: safe staging, crash-recoverable commit, backups and conflict retention. |
 | OLED | Real SSD1306 I2C protocol, real 128x64 GDDRAM; byte-exact against an independently derived oracle. |
-| HUB75 | Decoder verified against real GDMA traffic (continuous streaming, real multi-plane descriptors); a sentinel-descriptor bug that duplicated dense frames into mirrored quadrants is fixed. Real animated content is captured end to end (`artifacts/mvp/hub75-real-content-proof/`). |
+| HUB75 | Decoder verified against real GDMA traffic (continuous streaming, real multi-plane descriptors); a sentinel-descriptor bug that duplicated dense frames into mirrored quadrants is fixed. Real animated content is captured end to end (`artifacts/mvp/hub75-real-content-proof/`). The decoded color data is always full-brightness (brightness is a separate OE/blanking signal this decoder can't see); the launcher scales the preview to the real configured brightness separately, see below. |
 | Desktop launcher | Translated, dark-theme Tkinter GUI: a three-panel preview (OLED + both HUB75 halves) at native aspect, aspect-locked resize, independent left/right wiring controls, a firmware picker (explicit choice overrides auto-detection), real hostdir sessions, live diagnostics, a virtual IR controller, a boop proximity-sensor toggle for SD cards using `trigger_mode: "gpio"`, and an opt-in live LED strip preview (firmware-buffer capture, see below). |
 
 **Known gaps** (unemulated or unverified hardware, not backend bugs):
@@ -194,9 +194,13 @@ meaningful UART log volume) additionally dumps `LedStrip::Display()`'s
 real computed color buffer to the console, for the live LED preview
 below; set `PLATFORMIO_BUILD_FLAGS="-DPROTOPANDAEMU_EMU_LED_DUMP"`
 before running `build-firmware-emu.sh` to turn it on, no source tree
-edits needed. No firmware config, pin assignment, or SD data is edited
-to make any of this work — board profile and GPIO assignments stay
-real.
+edits needed. A third, always-on console line
+(`[EMU] HUB75_BRIGHTNESS value=<0-255>`) reports every real panel
+brightness change (`Devices::SetMaxBrightness`, direct or the gentle
+per-frame ramp), throttled and change-gated the same way; the launcher
+scales its decoded (always full-brightness) preview by that value. No
+firmware config, pin assignment, or SD data is edited to make any of
+this work — board profile and GPIO assignments stay real.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/path/to/your/fork \

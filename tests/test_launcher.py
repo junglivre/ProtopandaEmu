@@ -516,6 +516,80 @@ class DrawHub75SplitsLeftRightHalvesTests(unittest.TestCase):
         self.assertEqual(app._hub75_left_photo.get(last_left_x, 0), (255, 0, 0))
 
 
+class ReadLatestHub75BrightnessTests(unittest.TestCase):
+    """_read_latest_hub75_brightness() decodes Devices::SetMaxBrightness's
+    dump (firmware-emu patch 0014) the same tail-scan way the other
+    console-sourced decoders do, picking the newest value and clamping to
+    the real uint8_t range."""
+
+    def test_decodes_the_newest_value(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text(
+                "boot noise\n"
+                "[EMU] HUB75_BRIGHTNESS value=1\n"
+                "[EMU] HUB75_BRIGHTNESS value=64\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(launcher._read_latest_hub75_brightness(path), 64)
+
+    def test_missing_file_returns_none(self):
+        value = launcher._read_latest_hub75_brightness(Path("/nonexistent/qemu.uart.log"))
+        self.assertIsNone(value)
+
+    def test_no_lines_yet_returns_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text("boot noise, no brightness dump yet\n", encoding="utf-8")
+            self.assertIsNone(launcher._read_latest_hub75_brightness(path))
+
+
+class DrawHub75ScalesToConfiguredBrightnessTests(unittest.TestCase):
+    """The preview must scale the decoded (always full-brightness) color
+    data down to the real configured brightness, since this backend's
+    HUB75 decoder has no visibility into the panel's actual OE/blanking
+    dimming signal -- confirmed by rendering the same full-white frame at
+    two different self.hub75_brightness values and checking the pixel
+    output actually differs proportionally, and that the default (unknown
+    brightness) case renders undimmed."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def _white_dump(self, width=4, height=2):
+        data = bytes((255, 255, 255)) * (width * height)
+        return {"seq": 1, "width": width, "height": height, "data": data}
+
+    def test_default_brightness_renders_undimmed(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        self.assertEqual(app.hub75_brightness, 255)
+        app._draw_hub75(self._white_dump())
+        self.assertEqual(app._hub75_left_photo.get(0, 0), (255, 255, 255))
+
+    def test_half_brightness_dims_the_preview_proportionally(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.hub75_brightness = 128
+        app._draw_hub75(self._white_dump())
+        r, g, b = app._hub75_left_photo.get(0, 0)
+        self.assertEqual((r, g, b), (128, 128, 128))
+
+    def test_zero_brightness_renders_black(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.hub75_brightness = 0
+        app._draw_hub75(self._white_dump())
+        self.assertEqual(app._hub75_left_photo.get(0, 0), (0, 0, 0))
+
+
 class ReadLatestLedDumpTests(unittest.TestCase):
     """_read_latest_led_dump() decodes firmware-emu patch 0013's LED_DUMP
     console line the same way _read_latest_dumps() handles OLED/HUB75,

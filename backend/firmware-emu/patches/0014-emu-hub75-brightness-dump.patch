@@ -1,0 +1,36 @@
+diff --git a/src/tools/devices.cpp b/src/tools/devices.cpp
+index 5c44fac..bca674a 100644
+--- a/src/tools/devices.cpp
++++ b/src/tools/devices.cpp
+@@ -255,7 +255,30 @@ bool Devices::CheckPowerLevel(){
+ 
+ void Devices::SetMaxBrightness(uint8_t b){
+   maxBrightness = b;
+-  Devices::Display->setBrightness8(b); 
++  Devices::Display->setBrightness8(b);
++#ifdef PROTOPANDAEMU_EMU
++  /* The real panel dims via the OE/blanking pin's duty cycle, a signal
++   * this backend's HUB75 decoder never sees (it only reads the color
++   * bit-plane DMA data), so the preview always reconstructs full,
++   * undimmed color regardless of the real configured brightness. This
++   * is the single choke point every brightness change (direct or the
++   * gentle per-frame ramp) already passes through -- dump it so the
++   * launcher can scale the preview to match. Throttled and
++   * change-gated: the gentle ramp calls this every frame while
++   * transitioning (BeginAutoFrame in this same file), which would
++   * otherwise flood the console the same way the old LED dump did
++   * before it got the same treatment. */
++  static uint8_t lastDumped = 0;
++  static bool everDumped = false;
++  static uint32_t lastDumpMs = 0;
++  uint32_t now = millis();
++  if ((!everDumped || b != lastDumped) && (now - lastDumpMs) >= 100){
++    Serial.printf("[EMU] HUB75_BRIGHTNESS value=%u\n", (unsigned)b);
++    lastDumped = b;
++    everDumped = true;
++    lastDumpMs = now;
++  }
++#endif
+ }
+ 
+ void Devices::BeginFrame(){
