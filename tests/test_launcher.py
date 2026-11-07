@@ -1049,5 +1049,68 @@ class EqualizerTests(unittest.TestCase):
             app._close_equalizer()
 
 
+class SetUartTailFiltersLedDumpTests(unittest.TestCase):
+    """[EMU] LED_DUMP lines carry a full hex color buffer per frame and
+    can dwarf everything else in the UART panel; they must not show up
+    there, but the file on disk (what the LED strip canvas itself
+    parses separately) must stay untouched."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_led_dump_lines_excluded_from_the_visible_panel(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text(
+                "[1000][I] boot noise\n"
+                "[EMU] LED_DUMP count=2 hex=ff0000ff0000\n"
+                "[1001][I] more boot noise\n",
+                encoding="utf-8",
+            )
+            app._set_uart_tail(path)
+            shown = app.uart_text.get("1.0", "end")
+            self.assertNotIn("LED_DUMP", shown)
+            self.assertIn("boot noise", shown)
+            # The file itself is untouched -- the strip canvas's own
+            # reader (_read_latest_led_dump) still sees the real line.
+            self.assertIn("LED_DUMP", path.read_text(encoding="utf-8"))
+
+    def test_mid_line_seek_does_not_leak_a_hex_fragment(self):
+        """A tail seek can land inside a LED_DUMP line's hex payload,
+        stripping its "[EMU] LED_DUMP" prefix -- that orphaned fragment
+        must not slip through the filter as a bare wall of hex."""
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        line1 = "[1000][I] boot noise\n"
+        line2 = "[EMU] LED_DUMP count=2 hex=ff0000ff0000\n"
+        line3 = "[1001][I] more boot noise\n"
+        content = line1 + line2 + line3
+        # Put the seek point right after "hex=ff0000" -- mid payload --
+        # so the tail window's first "line" is the orphaned fragment
+        # "ff0000\n" plus line3, with no "[EMU] LED_DUMP" prefix left.
+        split_point = len(line1) + line2.index("hex=") + len("hex=ff0000")
+        original_tail_bytes = launcher._DUMP_TAIL_BYTES
+        launcher._DUMP_TAIL_BYTES = len(content) - split_point
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "qemu.uart.log"
+                path.write_text(content, encoding="utf-8")
+                app._set_uart_tail(path)
+                shown = app.uart_text.get("1.0", "end")
+                self.assertNotIn("ff0000", shown)
+                self.assertIn("more boot noise", shown)
+        finally:
+            launcher._DUMP_TAIL_BYTES = original_tail_bytes
+
+
 if __name__ == "__main__":
     unittest.main()

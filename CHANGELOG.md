@@ -454,3 +454,7 @@
   unaffected and would have shown every band. Regression tests:
   `EqualizerTests::test_slider_positions_survive_close_and_reopen`,
   `test_band_count_change_resets_stale_positions`.
+- Filter `[EMU] LED_DUMP` lines out of the visible UART panel. Each
+  line carries a full per-frame hex color buffer and was drowning out
+  everything else in the panel. The strip preview itself is unaffected
+  -- it reads the underlying log file directly, not this display copy.

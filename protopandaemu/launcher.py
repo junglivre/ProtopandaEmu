@@ -1269,9 +1269,29 @@ class LauncherApp:
 
     def _set_uart_tail(self, path: pathlib.Path) -> None:
         try:
-            data = path.read_text(encoding="utf-8", errors="replace")[-8000:]
+            # Read a wider window than the display budget: LED_DUMP lines
+            # get filtered out below (same data the LED strip canvas
+            # already renders separately -- a fat hex dump of every
+            # frame's full color buffer just drowns out everything else
+            # in this panel), so a chatty session needs more raw text to
+            # still fill the visible tail with readable content. Seeks
+            # from the end instead of reading the whole (growing) file.
+            with path.open("rb") as handle:
+                handle.seek(0, os.SEEK_END)
+                size = handle.tell()
+                seek_to = max(0, size - _DUMP_TAIL_BYTES)
+                handle.seek(seek_to)
+                raw = handle.read().decode("utf-8", errors="replace")
         except OSError:
             return
+        split = raw.splitlines()
+        if seek_to > 0 and split:
+            # The seek can land mid-line; a truncated LED_DUMP fragment
+            # here has lost its "[EMU] LED_DUMP" prefix and would slip
+            # through the filter below as a bare wall of hex.
+            split = split[1:]
+        lines = [line for line in split if not line.startswith("[EMU] LED_DUMP")]
+        data = "\n".join(lines)[-8000:]
         self.uart_var.set(f"UART: {path}")
         self.uart_text.configure(state="normal")
         self.uart_text.delete("1.0", "end")
