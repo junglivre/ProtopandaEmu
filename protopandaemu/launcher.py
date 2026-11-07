@@ -363,12 +363,6 @@ class LauncherApp:
 
     def __init__(self, root: tk.Misc, *, initial_hostdir: str | pathlib.Path | None = None,
                  timeout: float = 30.0):
-        # The headless CLI echoes raw UART to the terminal by default
-        # (see README) since that's its only live output; this GUI has
-        # its own UART panel, so the same bytes also hitting the
-        # terminal is pure noise. setdefault so an explicit override
-        # (e.g. a developer debugging from a terminal) still wins.
-        os.environ.setdefault("PROTOPANDAEMU_QUIET_UART", "1")
         self.root = root
         self.timeout = timeout
         self.hostdir: pathlib.Path | None = None

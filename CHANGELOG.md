@@ -465,6 +465,16 @@
   other live output), so the launcher still flooded a real terminal
   with LED_DUMP lines even after that fix. An explicit override still
   wins. Verified on a real boot: zero UART bytes reached stdout.
+- Revert the blanket PROTOPANDAEMU_QUIET_UART default above (it
+  silenced all UART output when only the LED flood was the problem)
+  and fix the flood at the source instead: `supervisor._drain_uart`
+  now holds `[EMU] LED_DUMP` lines back from its terminal echo only,
+  line by line across the 4096-byte read blocks, while every other
+  byte still streams and the log file keeps all of them. The
+  `PROTOPANDAEMU_QUIET_UART=1` env var remains as the full-silence
+  escape hatch the proof scripts use. Verified on a real boot: 329
+  UART lines reached stdout, zero of them LED_DUMP. Regression tests:
+  `tests/test_supervisor_uart_filter.py`.
 - Add a Speaker control that reproduces the real piezo buzzer: a new
   firmware-emu dump (`[EMU] TONE seq=<n> freq=<hz> duration_ms=<ms>`)
   fires on every `Devices::BuzzerTone`/`BuzzerToneDuration`/

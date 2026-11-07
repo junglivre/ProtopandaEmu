@@ -536,6 +536,16 @@ class SessionHandle:
 
     def _drain_uart(self, stream: Any) -> None:
         self._uart_log.parent.mkdir(parents=True, exist_ok=True)
+        # Full silence is still available via PROTOPANDAEMU_QUIET_UART=1
+        # (automated proof scripts use it to keep their own output
+        # clean). Short of that, every byte still reaches the log file
+        # and the terminal unfiltered -- except [EMU] LED_DUMP lines,
+        # which carry a full per-frame hex color buffer and drown out
+        # everything else on a real boot; those are held back from the
+        # terminal echo only, line by line, since the firmware writes
+        # them in 4096-byte blocks that don't align with line breaks.
+        quiet = os.environ.get("PROTOPANDAEMU_QUIET_UART") == "1"
+        pending = b""
         with self._uart_log.open("wb") as output:
             while True:
                 block = stream.read1(4096)
@@ -544,13 +554,24 @@ class SessionHandle:
                 output.write(block)
                 output.flush()
                 self._observe(block, stdout=True)
-                if os.environ.get("PROTOPANDAEMU_QUIET_UART") != "1":
-                    try:
-                        sys.stdout.buffer.write(block)
-                        sys.stdout.buffer.flush()
-                    except (AttributeError, OSError):
-                        sys.stdout.write(block.decode("utf-8", "replace"))
-                        sys.stdout.flush()
+                if quiet:
+                    continue
+                pending += block
+                *complete, pending = pending.split(b"\n")
+                for line in complete:
+                    if not line.startswith(b"[EMU] LED_DUMP"):
+                        self._echo_to_stdout(line + b"\n")
+        if not quiet and pending and not pending.startswith(b"[EMU] LED_DUMP"):
+            self._echo_to_stdout(pending)
+
+    @staticmethod
+    def _echo_to_stdout(data: bytes) -> None:
+        try:
+            sys.stdout.buffer.write(data)
+            sys.stdout.buffer.flush()
+        except (AttributeError, OSError):
+            sys.stdout.write(data.decode("utf-8", "replace"))
+            sys.stdout.flush()
 
     def _drain_stderr(self, stream: Any) -> None:
         self._stderr_log.parent.mkdir(parents=True, exist_ok=True)

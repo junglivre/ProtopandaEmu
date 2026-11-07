@@ -201,7 +201,12 @@ de WS2812 via `FastLED.show()` continua stubada (o modelo de RMT do
 QEMU completa a transação mas não decodifica o timing do sinal, então
 não há fio pra acender); em vez disso despeja o buffer de cor real que
 `LedStrip::Display()` calcula no console (limitada a 100ms, filtrada
-por mudança), pra prévia de LED ao vivo abaixo. A mesma lacuna de
+por mudança), pra prévia de LED ao vivo abaixo. O supervisor segura as
+linhas `[EMU] LED_DUMP` fora do eco bruto de UART no terminal (a única
+saída ao vivo do CLI headless) -- elas carregam um buffer hex de cor
+por frame e engolem todo o resto -- enquanto todo outro byte continua
+fluindo, o arquivo de log guarda tudo, e `PROTOPANDAEMU_QUIET_UART=1`
+silencia o eco por completo. A mesma lacuna de
 brilho se aplica à fita de LED: `FastLED.setBrightness()` é um escalar
 global separado nunca gravado no buffer de cor, então uma segunda
 linha de console (`[EMU] LED_BRIGHTNESS value=<0-255>`) reporta isso

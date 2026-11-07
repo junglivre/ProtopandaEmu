@@ -196,7 +196,13 @@ the continuous/DMA ADC `fft.cpp`'s real sampling needs -- the real
 completes the transaction but doesn't decode signal timing, so there's
 no wire to light); dump the real `LedStrip::Display()` computed color
 buffer to the console instead (throttled to 100ms, change-gated),
-for the live LED preview below. The same brightness gap applies to the
+for the live LED preview below. The supervisor holds those `[EMU]
+LED_DUMP` lines back from its raw UART echo to the terminal (the
+headless CLI's own live output) -- they carry a full per-frame hex
+color buffer and drown out everything else -- while every other byte
+still streams, the log file keeps all of them, and setting
+`PROTOPANDAEMU_QUIET_UART=1` silences the echo entirely. The same
+brightness gap applies to the
 LED strip: `FastLED.setBrightness()` is a separate global scalar never
 baked into the color buffer, so a second console line (`[EMU]
 LED_BRIGHTNESS value=<0-255>`) reports it from both
