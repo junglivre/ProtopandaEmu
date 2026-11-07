@@ -690,8 +690,19 @@ class RmsToLevelMappingTests(unittest.TestCase):
     def test_floor_db_is_empty_meter(self):
         app = launcher.LauncherApp(self.root)
         self.root.after_cancel(app._after_id)
+        app.mic_gain_var.set(1.0)  # isolate the floor boundary from the gain boost
         floor_rms = 10 ** (app.MIC_DB_FLOOR / 20.0)
         self.assertAlmostEqual(app._rms_to_level(floor_rms), 0.0, places=6)
+
+    def test_gain_boosts_a_quiet_signal(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        quiet_rms = 10 ** (app.MIC_DB_FLOOR / 20.0) * 2  # just above the floor
+        app.mic_gain_var.set(1.0)
+        unboosted = app._rms_to_level(quiet_rms)
+        app.mic_gain_var.set(4.0)
+        boosted = app._rms_to_level(quiet_rms)
+        self.assertGreater(boosted, unboosted)
 
 
 class MicSendLoopInjectsScaledEnergyTests(unittest.TestCase):

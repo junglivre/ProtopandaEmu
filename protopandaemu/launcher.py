@@ -301,6 +301,7 @@ class LauncherApp:
         self._mic_send_job_id: str | None = None
         self.mic_device_indices: list[int | None] = [None]
         self.mic_threshold_var = tk.StringVar(value="")
+        self.mic_gain_var = tk.DoubleVar(value=3.0)
 
         self.hostdir_var = tk.StringVar(value="No folder selected")
         self.firmware_var = tk.StringVar(value="Auto-detected")
@@ -372,6 +373,8 @@ class LauncherApp:
                         foreground=DARK_FG, arrowcolor=DARK_FG, bordercolor=DARK_BORDER)
         style.map("TCombobox", fieldbackground=[("readonly", DARK_PANEL_ALT)],
                  foreground=[("readonly", DARK_FG)])
+        style.configure("TSpinbox", fieldbackground=DARK_PANEL_ALT, background=DARK_PANEL_ALT,
+                        foreground=DARK_FG, arrowcolor=DARK_FG, bordercolor=DARK_BORDER)
         style.configure("TSeparator", background=DARK_BORDER)
         style.configure("Vertical.TScrollbar", background=DARK_PANEL_ALT, troughcolor=DARK_BG,
                         bordercolor=DARK_BORDER, arrowcolor=DARK_FG_MUTED)
@@ -584,37 +587,39 @@ class LauncherApp:
         lower = ttk.Frame(preview)
         lower.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         lower.columnconfigure(0, weight=1)
-        lower.rowconfigure(5, weight=1)
+        lower.rowconfigure(4, weight=1)
         ttk.Label(lower, text="LED strip (buffer capture, not a verified hardware trace)",
                  foreground=DARK_FG_MUTED).grid(row=0, column=0, sticky="w")
         self.led_canvas = tk.Canvas(lower, height=28, bg=DARK_CANVAS_BG,
                                     highlightthickness=1, highlightbackground=DARK_BORDER)
         self.led_canvas.grid(row=1, column=0, sticky="ew", pady=(2, 8))
         self.led_canvas.bind("<Configure>", lambda _e: self._redraw_led_strip_from_cache())
-        ttk.Label(lower, text="Microphone (host capture -> FFT level override)",
-                 foreground=DARK_FG_MUTED).grid(row=2, column=0, sticky="w")
         mic_row = ttk.Frame(lower)
-        mic_row.grid(row=3, column=0, sticky="ew", pady=(2, 8))
+        mic_row.grid(row=2, column=0, sticky="ew", pady=(2, 4))
         mic_row.columnconfigure(2, weight=1)
         self.mic_button = ttk.Button(mic_row, text="Mic", width=6, command=self._toggle_mic)
         self.mic_button.grid(row=0, column=0, padx=(0, 6))
         ttk.Label(mic_row, text="Input:", foreground=DARK_FG_MUTED).grid(row=0, column=1, padx=(0, 4))
-        self.mic_device_combo = ttk.Combobox(mic_row, state="readonly", width=30)
+        self.mic_device_combo = ttk.Combobox(mic_row, state="readonly", width=24)
         self.mic_device_combo.grid(row=0, column=2, sticky="ew")
-        self.mic_canvas = tk.Canvas(mic_row, height=20, bg=DARK_CANVAS_BG,
-                                    highlightthickness=1, highlightbackground=DARK_BORDER)
-        self.mic_canvas.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(4, 0))
-        self.mic_canvas.bind("<Configure>", lambda _e: self._draw_vu_meter())
+        ttk.Label(mic_row, text="Gain:", foreground=DARK_FG_MUTED).grid(row=0, column=3, padx=(8, 4))
+        self.mic_gain_spin = ttk.Spinbox(mic_row, from_=0.5, to=8.0, increment=0.5, width=4,
+                                         textvariable=self.mic_gain_var)
+        self.mic_gain_spin.grid(row=0, column=4)
         ttk.Label(mic_row, textvariable=self.mic_threshold_var, foreground=DARK_FG_MUTED).grid(
-            row=2, column=0, columnspan=3, sticky="w", pady=(2, 0))
+            row=0, column=5, sticky="e", padx=(8, 0))
+        self.mic_canvas = tk.Canvas(mic_row, height=14, bg=DARK_CANVAS_BG,
+                                    highlightthickness=1, highlightbackground=DARK_BORDER)
+        self.mic_canvas.grid(row=1, column=0, columnspan=6, sticky="ew", pady=(3, 0))
+        self.mic_canvas.bind("<Configure>", lambda _e: self._draw_vu_meter())
         self._populate_mic_devices()
         ttk.Label(lower, textvariable=self.uart_var, foreground=DARK_FG_MUTED).grid(
-            row=4, column=0, sticky="w")
+            row=3, column=0, sticky="w")
         self.uart_text = tk.Text(lower, height=9, width=149, state="disabled", wrap="none",
                                  bg=DARK_CANVAS_BG, fg=DARK_FG, insertbackground=DARK_FG,
                                  relief="solid", borderwidth=1, highlightthickness=1,
                                  highlightbackground=DARK_BORDER, padx=6, pady=4)
-        self.uart_text.grid(row=5, column=0, sticky="nsew")
+        self.uart_text.grid(row=4, column=0, sticky="nsew")
 
     def _lock_aspect_ratio(self) -> None:
         # "Diagonal-only" resize: lock the window's min and max interactive
@@ -888,8 +893,11 @@ class LauncherApp:
     # that 0..1 fraction scales onto [0, fft_max_energy * MIC_HEADROOM] --
     # the per-band value "MIC:<n>" injects. The headroom multiplier lets a
     # louder-than-"max" voice still read as full rather than clipping the
-    # meter exactly at the configured max.
-    MIC_DB_FLOOR = -50.0
+    # meter exactly at the configured max. The floor is tuned generous
+    # (quiet unboosted laptop/USB mics can sit well below -50 dBFS during
+    # normal speech); mic_gain_var is an additional user-adjustable boost
+    # on top of that for whatever's still too quiet on a given machine.
+    MIC_DB_FLOOR = -62.0
     MIC_DB_CEIL = 0.0
     MIC_HEADROOM = 1.2
     MIC_SEND_INTERVAL_MS = 100
@@ -903,17 +911,28 @@ class LauncherApp:
     def _populate_mic_devices(self) -> None:
         self.mic_device_indices = [None]
         names = ["Default input device"]
+        preferred = 0
         if _sounddevice is not None:
             try:
                 for index, dev in enumerate(_sounddevice.query_devices()):
                     if dev.get("max_input_channels", 0) > 0:
                         self.mic_device_indices.append(index)
-                        names.append(dev.get("name") or f"Device {index}")
+                        name = dev.get("name") or f"Device {index}"
+                        names.append(name)
+                        # PortAudio's own "default" can resolve to a raw
+                        # ALSA hw device that PulseAudio already holds
+                        # exclusively, opening silent or failing outright
+                        # on a typical PulseAudio desktop; the "pulse"
+                        # plugin device routes through the running sound
+                        # server instead and is far more likely to
+                        # actually work out of the box there.
+                        if preferred == 0 and name.strip().lower() == "pulse":
+                            preferred = len(names) - 1
             except Exception:
                 pass  # leave just "Default input device"; _start_mic_capture()
                       # reports any real open failure when the user clicks Mic
         self.mic_device_combo.configure(values=names)
-        self.mic_device_combo.current(0)
+        self.mic_device_combo.current(preferred)
 
     def _selected_mic_device(self) -> int | None:
         choice = self.mic_device_combo.current()
@@ -977,7 +996,8 @@ class LauncherApp:
             self.handle.send_serial_input("MIC:0\n")
 
     def _rms_to_level(self, rms: float) -> float:
-        db = 20.0 * math.log10(max(rms, 1e-6))
+        gain = max(0.1, self.mic_gain_var.get())
+        db = 20.0 * math.log10(max(rms * gain, 1e-6))
         level = (db - self.MIC_DB_FLOOR) / (self.MIC_DB_CEIL - self.MIC_DB_FLOOR)
         return max(0.0, min(1.0, level))
 

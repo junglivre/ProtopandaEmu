@@ -215,10 +215,3 @@ rm -f "$merged_tmp"
 sha256sum "$OUT_DIR/release/merged_flash.bin" | tee "$OUT_DIR/release/merged_flash.bin.sha256"
 echo "EMU firmware written: $OUT_DIR/release/merged_flash.bin"
 echo "Enable it with: export PROTOPANDAEMU_EXTRA_FIRMWARE_SHA256=\$(cut -d' ' -f1 $OUT_DIR/release/merged_flash.bin.sha256) PROTOPANDAEMU_EMU_FIRMWARE=$OUT_DIR/release/merged_flash.bin"
-if [[ "${PLATFORMIO_BUILD_FLAGS:-}" == *PROTOPANDAEMU_EMU_LED_DUMP* ]]; then
-  echo "LED strip preview: ENABLED (PROTOPANDAEMU_EMU_LED_DUMP set for this build)"
-else
-  echo "LED strip preview: disabled this build (opt-in, not persisted across"
-  echo "  rebuilds) -- set PLATFORMIO_BUILD_FLAGS=\"-DPROTOPANDAEMU_EMU_LED_DUMP\""
-  echo "  before running this script again to turn it back on"
-fi

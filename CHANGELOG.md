@@ -325,3 +325,46 @@
   preview enabled/disabled) -- an easy thing to forget on a rebuild done
   for an unrelated reason, since it's a per-build env var, not a
   persisted setting, and nothing else surfaces its state.
+- Make the LED strip dump always-on, matching HUB75_BRIGHTNESS.
+  Supersedes both the earlier opt-in entry and the build-script reminder
+  entry above: the opt-in `PROTOPANDAEMU_EMU_LED_DUMP` flag kept lapsing
+  on rebuilds done for an unrelated reason (confirmed: a user rebuild to
+  pick up the mic feature silently dropped it, with zero `LED_DUMP`
+  strings in the resulting binary), and a build-time reminder message
+  didn't fix that, it just explained it after the fact. Already
+  throttled (100ms) and change-gated (memcmp against the last dumped
+  buffer) from the start, unlike the original unthrottled I2C dump
+  mistake earlier in this project that first justified opt-in dumps in
+  general -- measured worst case (continuous animation, 64 LEDs) is
+  ~4KB/s, smaller than ordinary boot logging. Patch
+  `0013-emu-ledstrip-dump.patch` regenerated as a full replacement
+  (still diffed from the true unpatched source, not layered on the old
+  patch) with the flag removed.
+- Fix the HUB75/OLED preview looking oversized relative to its own
+  content, and the Mic row's gain being effectively fixed. The first
+  was a window-height regression from the Mic feature: screenshotted
+  the real GUI under Xvfb and measured the root window at 1600x1080,
+  up from 1600x958 before that feature existed -- taller than many
+  screens can actually show once window-manager chrome is accounted
+  for, which is what "the square looks bigger than the real view"
+  turned out to mean (the window partly off-screen, not a rendering
+  bug in the OLED/HUB75 canvases themselves; confirmed by measuring
+  their decoded content fills them correctly once a real session is
+  running). Compacted the Mic row (dropped its own section header,
+  combined the button/device-picker/threshold text onto one row, a
+  slimmer VU meter) back down to 1600x1019. Second: added a "Gain"
+  spinbox (0.5x-8x, default 3x) multiplying the captured RMS before
+  the dBFS mapping, and lowered the meter's floor from -50 to -62
+  dBFS -- a real user's own device-side FFT calibration bars reacted
+  to their voice but only ever registered small levels, meaning the
+  signal path worked end to end but a quiet, unboosted mic needed more
+  headroom than the original floor gave it to reliably cross the
+  firmware's speech activation threshold. Also prefer a device literally
+  named "pulse" over PortAudio's own "default" when populating the
+  input dropdown: on a PulseAudio desktop "default" can resolve to a
+  raw ALSA device PulseAudio already holds exclusively, opening silent
+  or failing outright, which is exactly what another user report
+  described ("mic works when I pick pulse"). Regression tests:
+  `tests/test_launcher.py::RmsToLevelMappingTests::test_gain_boosts_a_quiet_signal`,
+  updated `test_floor_db_is_empty_meter` to isolate the floor boundary
+  from the new gain multiplier.
