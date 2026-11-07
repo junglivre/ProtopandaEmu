@@ -621,6 +621,17 @@ class LauncherApp:
         ttk.Label(controls, textvariable=self.resource_var, wraplength=340,
                  foreground=DARK_FG_MUTED).grid(row=13, column=0, sticky="w", pady=2)
 
+        ttk.Label(controls, text="Speaker volume").grid(row=14, column=0, sticky="w", pady=(14, 2))
+        speaker_row = ttk.Frame(controls)
+        speaker_row.grid(row=15, column=0, sticky="ew")
+        speaker_row.columnconfigure(0, weight=1)
+        self.speaker_volume_scale = ttk.Scale(
+            speaker_row, from_=0.0, to=1.0, orient="horizontal",
+            variable=self.speaker_volume_var, command=self._on_speaker_volume_change)
+        self.speaker_volume_scale.grid(row=0, column=0, sticky="ew")
+        ttk.Label(speaker_row, textvariable=self.speaker_volume_label_var, foreground=DARK_FG_MUTED,
+                 width=5).grid(row=0, column=1, padx=(8, 0))
+
         ttk.Label(preview, text="Backend preview", font=("TkDefaultFont", 14, "bold")).grid(
             row=0, column=0, sticky="w")
         status_row = ttk.Frame(preview)
@@ -709,7 +720,7 @@ class LauncherApp:
         lower = ttk.Frame(preview)
         lower.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         lower.columnconfigure(0, weight=1)
-        lower.rowconfigure(5, weight=1)
+        lower.rowconfigure(4, weight=1)
         ttk.Label(lower, text="LED strip", foreground=DARK_FG_MUTED).grid(row=0, column=0, sticky="w")
         self.led_canvas = tk.Canvas(lower, height=28, bg=DARK_CANVAS_BG,
                                     highlightthickness=1, highlightbackground=DARK_BORDER)
@@ -737,24 +748,13 @@ class LauncherApp:
         self.mic_canvas.grid(row=2, column=0, columnspan=7, sticky="ew", pady=(3, 0))
         self.mic_canvas.bind("<Configure>", lambda _e: self._draw_vu_meter())
         self._populate_mic_devices()
-        speaker_row = ttk.Frame(lower)
-        speaker_row.grid(row=3, column=0, sticky="ew", pady=(2, 4))
-        speaker_row.columnconfigure(2, weight=1)
-        ttk.Label(speaker_row, text="Speaker", foreground=DARK_FG_MUTED).grid(row=0, column=0, padx=(0, 6))
-        ttk.Label(speaker_row, text="Volume:", foreground=DARK_FG_MUTED).grid(row=0, column=1, padx=(0, 4))
-        self.speaker_volume_scale = ttk.Scale(
-            speaker_row, from_=0.0, to=1.0, orient="horizontal",
-            variable=self.speaker_volume_var, command=self._on_speaker_volume_change)
-        self.speaker_volume_scale.grid(row=0, column=2, sticky="ew")
-        ttk.Label(speaker_row, textvariable=self.speaker_volume_label_var, foreground=DARK_FG_MUTED,
-                 width=5).grid(row=0, column=3, padx=(8, 0))
         ttk.Label(lower, textvariable=self.uart_var, foreground=DARK_FG_MUTED).grid(
-            row=4, column=0, sticky="w")
+            row=3, column=0, sticky="w")
         self.uart_text = tk.Text(lower, height=9, width=149, state="disabled", wrap="none",
                                  bg=DARK_CANVAS_BG, fg=DARK_FG, insertbackground=DARK_FG,
                                  relief="solid", borderwidth=1, highlightthickness=1,
                                  highlightbackground=DARK_BORDER, padx=6, pady=4)
-        self.uart_text.grid(row=5, column=0, sticky="nsew")
+        self.uart_text.grid(row=4, column=0, sticky="nsew")
 
     def _lock_aspect_ratio(self) -> None:
         # "Diagonal-only" resize: lock the window's min and max interactive
