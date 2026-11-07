@@ -40,7 +40,7 @@ relies on the same already-verified HUB75 decoder.
 | Folder-backed storage | A chosen folder becomes the firmware's SD card: safe staging, crash-recoverable commit, backups and conflict retention. |
 | OLED | Real SSD1306 I2C protocol, real 128x64 GDDRAM; byte-exact against an independently derived oracle. |
 | HUB75 | Decoder verified against real GDMA traffic (continuous streaming, real multi-plane descriptors); a sentinel-descriptor bug that duplicated dense frames into mirrored quadrants is fixed. Real animated content is captured end to end (`artifacts/mvp/hub75-real-content-proof/`). |
-| Desktop launcher | Translated, dark-theme Tkinter GUI: a three-panel preview (OLED + both HUB75 halves) at native aspect, aspect-locked resize, independent left/right wiring controls, a firmware picker (explicit choice overrides auto-detection), real hostdir sessions, live diagnostics, a virtual IR controller, a boop proximity-sensor toggle for SD cards using `trigger_mode: "gpio"`, and a live LED strip preview (firmware-buffer capture, see below). |
+| Desktop launcher | Translated, dark-theme Tkinter GUI: a three-panel preview (OLED + both HUB75 halves) at native aspect, aspect-locked resize, independent left/right wiring controls, a firmware picker (explicit choice overrides auto-detection), real hostdir sessions, live diagnostics, a virtual IR controller, a boop proximity-sensor toggle for SD cards using `trigger_mode: "gpio"`, and an opt-in live LED strip preview (firmware-buffer capture, see below). |
 
 **Known gaps** (unemulated or unverified hardware, not backend bugs):
 
@@ -188,10 +188,15 @@ UART) injects virtual IR button presses, a second console command
 for the boop proximity-sensor toggle below), the real `FastLED.show()`
 WS2812 write stays stubbed out (QEMU's RMT model completes the
 transaction but doesn't decode signal timing, so there's no wire to
-light) but `LedStrip::Display()`'s real computed color buffer is dumped
-to the console instead, for the live LED preview below. No firmware
-config, pin assignment, or SD data is edited to make this work — board
-profile and GPIO assignments stay real.
+light). An opt-in build flag (`PROTOPANDAEMU_EMU_LED_DUMP`, off by
+default -- even throttled, a long animated session adds up to
+meaningful UART log volume) additionally dumps `LedStrip::Display()`'s
+real computed color buffer to the console, for the live LED preview
+below; set `PLATFORMIO_BUILD_FLAGS="-DPROTOPANDAEMU_EMU_LED_DUMP"`
+before running `build-firmware-emu.sh` to turn it on, no source tree
+edits needed. No firmware config, pin assignment, or SD data is edited
+to make any of this work — board profile and GPIO assignments stay
+real.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/path/to/your/fork \
@@ -208,10 +213,11 @@ runs. For SD cards with `misc.json`'s `boop.trigger_mode: "gpio"`, a
 "Boop" toggle next to it overrides that pin's read value the same way
 (purple when near, grey when far); it has no effect on lidar-mode boop
 configs, which have no digital pin to override. Below the HUB75/OLED
-preview, a live LED strip row renders the real colors
-`LedStrip::Display()` computed (not a hardware-traffic trace like
-HUB75/OLED, see Current status above) for SD cards that drive WS2812
-output.
+preview, a LED strip row renders the real colors `LedStrip::Display()`
+computed (not a hardware-traffic trace like HUB75/OLED, see Current
+status above) for SD cards that drive WS2812 output -- it stays empty
+unless the firmware was built with `PROTOPANDAEMU_EMU_LED_DUMP` (see
+above).
 
 ### Verify the OLED output
 
