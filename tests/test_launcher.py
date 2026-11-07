@@ -7,6 +7,7 @@ wiring fields must not silently reorder/reformat the rest of their file, a
 dump landing mid-write in the log tail must not raise inside the refresh
 loop, and nothing in refresh() may prevent it from rescheduling itself.
 """
+import datetime
 import json
 import os
 import sys
@@ -403,6 +404,83 @@ class DeferredBoopDefaultOverrideTests(unittest.TestCase):
         app.refresh()
         self.root.after_cancel(app._after_id)
         self.assertEqual(app.handle.sent, ["GPIO:2:0\n"])
+
+
+class HostClockCommandTests(unittest.TestCase):
+    """The CLOCK line carries epoch seconds plus the UTC offset in minutes,
+    the same pair Clock::SetFromBle takes. A sign or unit slip here shows
+    the wrong time on the OLED (e.g. UTC instead of local time)."""
+
+    def test_negative_offset_whole_hours(self):
+        brt = datetime.timezone(datetime.timedelta(hours=-3))
+        now = datetime.datetime(2025, 1, 2, 3, 4, 5, tzinfo=brt)
+        self.assertEqual(launcher.host_clock_command(now),
+                         f"CLOCK:{int(now.timestamp())}:-180\n")
+
+    def test_positive_offset_with_half_hour(self):
+        ist = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        now = datetime.datetime(2025, 6, 1, 12, 0, 0, tzinfo=ist)
+        self.assertEqual(launcher.host_clock_command(now),
+                         f"CLOCK:{int(now.timestamp())}:330\n")
+
+    def test_epoch_is_utc_regardless_of_offset(self):
+        utc = datetime.datetime(2025, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
+        brt = utc.astimezone(datetime.timezone(datetime.timedelta(hours=-3)))
+        epoch_utc = launcher.host_clock_command(utc).split(":")[1]
+        epoch_brt = launcher.host_clock_command(brt).split(":")[1]
+        self.assertEqual(epoch_utc, epoch_brt)
+        self.assertEqual(epoch_utc, "1735689600")
+
+
+class DeferredClockSyncTests(unittest.TestCase):
+    """Same race as DeferredBoopDefaultOverrideTests: the CLOCK line must
+    wait for the vfs_init marker, go out exactly once per session, and be
+    retried if the console write fails."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def _app(self, handle):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.handle = handle
+        app._clock_sent = False  # what start_session() sets
+        return app
+
+    def _refresh(self, app):
+        app.refresh()
+        self.root.after_cancel(app._after_id)
+
+    def test_waits_for_vfs_init_marker(self):
+        app = self._app(FakeSerialHandle(marker_set=False))
+        self._refresh(app)
+        self.assertEqual(app.handle.sent, [])
+        self.assertFalse(app._clock_sent)
+
+    def test_sends_once_after_marker(self):
+        app = self._app(FakeSerialHandle(marker_set=True))
+        self._refresh(app)
+        self._refresh(app)
+        clock_lines = [line for line in app.handle.sent if line.startswith("CLOCK:")]
+        self.assertEqual(len(clock_lines), 1)
+        self.assertTrue(app._clock_sent)
+
+    def test_retries_when_the_console_write_fails(self):
+        handle = FakeSerialHandle(accept=False, marker_set=True)
+        app = self._app(handle)
+        self._refresh(app)
+        self.assertFalse(app._clock_sent)
+        handle.accept = True
+        self._refresh(app)
+        self.assertTrue(app._clock_sent)
+        self.assertEqual(len([l for l in handle.sent if l.startswith("CLOCK:")]), 1)
 
 
 

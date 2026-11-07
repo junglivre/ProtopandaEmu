@@ -196,7 +196,12 @@ abaixo), um terceiro comando de console (`MIC:<banda>:<valor>\n`)
 sobrepõe o retorno de `FFT::getBandValue(banda)` pra uma banda — a
 mesma sobreposição por banda que tanto o VU meter de Mic quanto o
 popup Equalizer abaixo acionam, já que este backend não tem modelo pro
-ADC contínuo/DMA que a amostragem real do `fft.cpp` exige — a gravação real
+ADC contínuo/DMA que a amostragem real do `fft.cpp` exige — um quarto
+(`CLOCK:<epoch>:<offset_utc_min>\n`) acerta o relógio pelo mesmo
+`Clock::SetFromBle` que a sincronização BLE do controle Panda usa, a
+única fonte no hardware real; o launcher manda a hora local do host uma
+vez por sessão depois do boot, então o relógio do OLED
+(`showTime`/`showDate` no `misc.json`) aparece — a gravação real
 de WS2812 via `FastLED.show()` continua stubada (o modelo de RMT do
 QEMU completa a transação mas não decodifica o timing do sinal, então
 não há fio pra acender); em vez disso despeja o buffer de cor real que

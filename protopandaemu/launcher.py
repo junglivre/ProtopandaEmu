@@ -8,6 +8,7 @@ captured by the supervisor; there is no synthetic rendering path.
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import math
@@ -144,6 +145,15 @@ class LauncherError(RuntimeError):
 def _write_json(path: pathlib.Path, value: Any, *, sort_keys: bool = True) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, sort_keys=sort_keys) + "\n", encoding="utf-8")
+
+
+def host_clock_command(now: datetime.datetime | None = None) -> str:
+    """The firmware-emu console line that sets the guest clock to the host's
+    local time: epoch seconds plus the UTC offset in minutes, the same pair
+    the Panda controller's BLE clock sync carries (Clock::SetFromBle)."""
+    local = now if now is not None and now.tzinfo is not None else (now or datetime.datetime.now()).astimezone()
+    offset_minutes = int(local.utcoffset().total_seconds() // 60)
+    return f"CLOCK:{int(local.timestamp())}:{offset_minutes}\n"
 
 
 def selected_wiring(*, flip_left: bool, flip_right: bool,
@@ -381,6 +391,7 @@ class LauncherApp:
         self.boop_gpio: int | None = None
         self.boop_near = False
         self._boop_default_sent = True  # no session yet, nothing pending
+        self._clock_sent = True  # same: nothing pending until a session starts
         self._hold_repeat_id: str | None = None
         # Microphone -> FFT-level override. See _load_mic_config() for the
         # SD card's own speech_band_start/end/min_energy/max_energy and
@@ -1399,6 +1410,7 @@ class LauncherApp:
         # SD-card-content-independent boot marker) confirms the guest
         # loop is actually consuming console input.
         self._boop_default_sent = self.boop_gpio is None
+        self._clock_sent = False
         if hasattr(self, "boop_button"):
             self.boop_button.configure(style="TButton")
         self.start_button.configure(state="disabled")
@@ -1433,6 +1445,12 @@ class LauncherApp:
         if not self._boop_default_sent and self.handle.wait_for_marker("vfs_init", timeout=0):
             if self.handle.send_serial_input(f"GPIO:{self.boop_gpio}:0\n"):
                 self._boop_default_sent = True
+        # The real device only learns the time from a paired BLE
+        # controller, which this backend doesn't have; without this the
+        # OLED clock (misc.json showTime/showDate) never appears.
+        if not self._clock_sent and self.handle.wait_for_marker("vfs_init", timeout=0):
+            if self.handle.send_serial_input(host_clock_command()):
+                self._clock_sent = True
         try:
             report = self.handle.session_report()
             self.last_report = report

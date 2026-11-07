@@ -504,3 +504,10 @@
   sound server's routing, so a tone could come out of the wrong
   device entirely instead of wherever the host actually has audio
   routed.
+- Sync the guest clock from the host. The firmware only learns the time
+  from a paired Panda controller over BLE (`Clock::SetFromBle`), which
+  this backend doesn't have, so `misc.json`'s `showTime`/`showDate`
+  OLED clock never appeared. Firmware-emu patch 0003 adds a
+  `CLOCK:<epoch>:<utc_offset_min>` console command calling that same
+  function; the launcher sends the host's local time once per session
+  after the `vfs_init` marker, retrying if the write fails.

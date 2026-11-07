@@ -1,12 +1,14 @@
 diff --git a/src/main.cpp b/src/main.cpp
-index 9644989..c94761d 100644
+index 9644989..4d581df 100644
 --- a/src/main.cpp
 +++ b/src/main.cpp
-@@ -28,6 +28,46 @@
+@@ -28,6 +28,48 @@
  
  #include "drawing/modelanimation/keyframeplayer.hpp"
  
 +#ifdef PROTOPANDAEMU_EMU
++#include "tools/clock.hpp"
++
 +// Console-injected overrides, consumed by other translation units via
 +// the extern getters below. -1 means "no override, use the real read".
 +static int8_t g_emuGpioOverride[49];
@@ -49,7 +51,7 @@ index 9644989..c94761d 100644
  
  LedStrip g_leds;
  FrameRepository g_frameRepo;
-@@ -227,6 +267,47 @@ void second_loop(void*){
+@@ -227,6 +269,58 @@ void second_loop(void*){
  
  
  void loop() {
@@ -58,7 +60,9 @@ index 9644989..c94761d 100644
 +  //   IR:<addr>:<cmd>    inject a virtual NEC command
 +  //   GPIO:<pin>:<0|1>   override a digital input pin's read
 +  //   MIC:<band>:<value> override one FFT band's energy
-+  // IR/GPIO echo an ack line; MIC doesn't (sent at a steady rate).
++  //   CLOCK:<epoch>:<utc_offset_min>  set the clock (no BLE controller
++  //                      here to sync it, the only source on real hw)
++  // IR/GPIO/CLOCK echo an ack line; MIC doesn't (sent at a steady rate).
 +  static String emuInputLine;
 +  while (Serial.available()){
 +    int c = Serial.read();
@@ -86,6 +90,15 @@ index 9644989..c94761d 100644
 +          int emuBand = atoi(emuInputLine.c_str() + 4);
 +          int emuValue = atoi(emuInputLine.c_str() + emuSep + 1);
 +          emuSetFFTBandOverride(emuBand, emuValue);
++        }
++      } else if (emuInputLine.startsWith("CLOCK:")){
++        int emuSep = emuInputLine.indexOf(':', 6);
++        if (emuSep > 0){
++          uint32_t emuEpoch = strtoul(emuInputLine.c_str() + 6, nullptr, 10);
++          int emuOffset = atoi(emuInputLine.c_str() + emuSep + 1);
++          bool emuOk = Clock::SetFromBle(emuEpoch, (int16_t)emuOffset);
++          Serial.printf("[EMU] clock %s epoch=%lu offset=%d\n", emuOk ? "set" : "rejected",
++                        (unsigned long)emuEpoch, emuOffset);
 +        }
 +      }
 +      emuInputLine = "";

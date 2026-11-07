@@ -191,7 +191,12 @@ for the boop proximity-sensor toggle below), a third console command
 (`MIC:<band>:<value>\n`) overrides `FFT::getBandValue(band)`'s return
 for one band -- the same per-band override both the Mic VU meter and
 the Equalizer popup below drive, since this backend has no model for
-the continuous/DMA ADC `fft.cpp`'s real sampling needs -- the real
+the continuous/DMA ADC `fft.cpp`'s real sampling needs -- a fourth
+(`CLOCK:<epoch>:<utc_offset_min>\n`) sets the clock through the same
+`Clock::SetFromBle` the Panda controller's BLE sync uses, its only
+source on real hardware; the launcher sends the host's local time once
+per session after boot, so `misc.json`'s `showTime`/`showDate` OLED
+clock appears -- the real
 `FastLED.show()` WS2812 write stays stubbed out (QEMU's RMT model
 completes the transaction but doesn't decode signal timing, so there's
 no wire to light); dump the real `LedStrip::Display()` computed color
