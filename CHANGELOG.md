@@ -207,3 +207,17 @@
   `DrawLedStripRendersEachColorTests`. Verified against a real boot on
   the user's own SD card: a rotating two-segment behavior streamed live,
   distinct colors per dump, matching the boot log's own LED setup.
+- Document the real status of microphone/FFT input: it never produces a
+  usable sample in this backend. `fft.cpp`'s `readAndAnalyse()` silently
+  no-ops every time `adc_continuous_read()` returns `ESP_ERR_TIMEOUT`,
+  with no error logged, and nothing in this backend's ADC model can
+  ever satisfy that read -- the existing SENS device
+  (`backend/qemu/new-files/hw/misc/esp32s3_sens.c`, added for a
+  different firmware subsystem's one-shot calibration poll, see
+  `docs/qemu-adc-spike.md`) only covers single-shot conversions, not the
+  continuous/DMA-mode ADC the microphone path requires. No code change:
+  firmware with `misc.json`'s `fft.enabled: true` boots and runs
+  normally (confirmed against a real user SD card with FFT enabled, no
+  hang or crash across multiple full sessions this round), it just never
+  sees real audio. README/README.pt-BR.md updated from "unverified" to
+  this definitive finding.
