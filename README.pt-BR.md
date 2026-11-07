@@ -42,23 +42,24 @@ decodificador HUB75 já verificado.
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
 | HUB75 | Decodificador verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); um bug de descritor sentinela que duplicava quadros densos em quadrantes espelhados está corrigido. Conteúdo animado real é capturado de ponta a ponta (`artifacts/mvp/hub75-real-content-proof/`). Os dados de cor decodificados são sempre em brilho máximo (brilho é um sinal separado de OE/blanking que este decodificador não vê); o launcher escala a prévia pro brilho real configurado separadamente, veja abaixo. |
-| Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual, um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`, e uma prévia ao vivo opcional da fita de LED (captura de buffer do firmware, veja abaixo). |
+| Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual, um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`, uma prévia ao vivo opcional da fita de LED (captura de buffer do firmware, veja abaixo), e um VU meter de microfone opcional que captura o microfone do host e injeta o nível como a leitura de energia de fala do FFT do firmware, veja abaixo. |
 
 **Lacunas conhecidas** (hardware não emulado ou não verificado, não bugs de backend):
 
-- **A entrada de microfone/FFT nunca produz uma amostra real.** Este
-  backend só modela o periférico ADC SAR single-shot
-  (`backend/qemu/new-files/hw/misc/esp32s3_sens.c`,
+- **A amostragem de ADC real do microfone não é modelada**, então
+  comportamento reativo a voz disparado direto pelo hardware nunca
+  acontece sozinho. Este backend só modela o periférico ADC SAR
+  single-shot (`backend/qemu/new-files/hw/misc/esp32s3_sens.c`,
   `docs/qemu-adc-spike.md`) que outro subsistema do firmware consulta
   durante a calibração do boot; não existe modelo pro ADC
   contínuo/DMA que a amostragem de microfone do `fft.cpp` exige
-  (`adc_continuous_read`). Firmware com `fft.enabled: true` no
-  `misc.json` inicializa e roda normalmente (confirmado contra um
-  cartão SD real do usuário: linhas de log `[FFT] begin()`/`started`,
-  sem travar ou crashar), mas `readAndAnalyse()` simplesmente não faz
-  nada a cada `ESP_ERR_TIMEOUT`, sem logar erro — espere que
-  comportamento reativo a voz simplesmente nunca dispare, não que
-  trave ou falhe.
+  (`adc_continuous_read`), e `readAndAnalyse()` simplesmente não faz
+  nada a cada `ESP_ERR_TIMEOUT`, sem logar erro. Em vez disso, o
+  recurso opcional de Mic do launcher captura o microfone do próprio
+  host e injeta o nível direto no único ponto que o código downstream
+  realmente lê (`FFT::getBandValue()`, que só carrega um número geral
+  de volume, não conteúdo espectral real) — veja "Rode seu próprio
+  fork de firmware e cartão SD como estão" abaixo.
 - **A saída de servo não tem feedback visual.** O firmware escreve um
   duty cycle de PWM real; o launcher não tem como mostrar o ângulo
   resultante.
@@ -191,17 +192,21 @@ SD, `BleManager::begin()` roda sem rádio para que chamadas de
 pressionamentos de IR virtuais, um segundo comando de console
 (`GPIO:<pin>:<0|1>\n`) sobrepõe o valor de leitura de qualquer pino de
 entrada digital (usado pelo toggle do sensor de proximidade boop
-abaixo), a gravação real de WS2812 via `FastLED.show()` continua
-stubada (o modelo de RMT do QEMU completa a transação mas não decodifica
-o timing do sinal, então não há fio pra acender). Uma flag de build
-opcional (`PROTOPANDAEMU_EMU_LED_DUMP`, desligada por padrão — mesmo
-limitada, uma sessão animada longa acumula volume relevante de log no
-UART) despeja adicionalmente o buffer de cor real que
-`LedStrip::Display()` calcula no console, pra prévia de LED ao vivo
-abaixo; defina
+abaixo), um terceiro comando de console (`MIC:<energia>\n`) sobrepõe o
+retorno de `FFT::getBandValue()` pra toda banda — a mesma sobreposição
+só-de-volume que o VU meter de Mic abaixo aciona a partir do microfone
+do próprio host, já que este backend não tem modelo pro ADC
+contínuo/DMA que a amostragem real do `fft.cpp` exige — a gravação real
+de WS2812 via `FastLED.show()` continua stubada (o modelo de RMT do
+QEMU completa a transação mas não decodifica o timing do sinal, então
+não há fio pra acender). Uma flag de build opcional
+(`PROTOPANDAEMU_EMU_LED_DUMP`, desligada por padrão — mesmo limitada,
+uma sessão animada longa acumula volume relevante de log no UART)
+despeja adicionalmente o buffer de cor real que `LedStrip::Display()`
+calcula no console, pra prévia de LED ao vivo abaixo; defina
 `PLATFORMIO_BUILD_FLAGS="-DPROTOPANDAEMU_EMU_LED_DUMP"` antes de rodar
 `build-firmware-emu.sh` pra ligar, sem editar nenhum arquivo da árvore
-de origem. Uma terceira linha de console, sempre ligada
+de origem. Uma quarta linha de console, sempre ligada
 (`[EMU] HUB75_BRIGHTNESS value=<0-255>`), reporta toda mudança real de
 brilho do painel (`Devices::SetMaxBrightness`, direta ou a rampa suave
 por quadro), limitada e filtrada por mudança da mesma forma; o launcher
@@ -230,7 +235,19 @@ renderiza as cores reais que `LedStrip::Display()` calculou (não é um
 traço de tráfego de hardware verificado como HUB75/OLED, veja Estado
 atual acima) para cartões SD que acionam saída WS2812 — fica vazia a
 menos que o firmware tenha sido compilado com
-`PROTOPANDAEMU_EMU_LED_DUMP` (veja acima).
+`PROTOPANDAEMU_EMU_LED_DUMP` (veja acima). Abaixo disso, para cartões
+SD com `fft.enabled: true` no `misc.json`, um botão "Mic" começa a
+capturar o microfone do próprio host através do pacote opcional
+[`sounddevice`](https://python-sounddevice.readthedocs.io/) (`pip
+install sounddevice`; no Linux também precisa da biblioteca de sistema
+`libportaudio2`, ex. `sudo apt install libportaudio2`) e envia o nível
+pela sobreposição `MIC:<energia>\n` acima, escalado pro intervalo
+`fft.speech_min_energy`/`speech_max_energy` do próprio cartão SD; o VU
+meter ao lado mostra o nível ao vivo com um marcador em
+`fft.speech_frist_frame_threshold`, o mesmo ponto de ativação que a
+detecção de fala do firmware usa. Esse é o único recurso do launcher
+fora da biblioteca padrão — o botão fica desabilitado com instruções de
+instalação se o `sounddevice` não estiver presente.
 
 ### Verifique a saída do OLED
 

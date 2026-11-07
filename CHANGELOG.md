@@ -260,3 +260,32 @@
   -> 118 -> 164 (throttled to 5 lines for the whole ramp, not one per
   frame), and the rendered preview's sampled max channel value tracked
   the decoded brightness exactly (164/255 of the raw 255 max).
+- Add host-microphone-driven FFT level emulation. Supersedes the
+  "microphone/FFT input never produces a real sample" entry above for
+  the specific thing this firmware actually uses mic input for: an
+  overall loudness number, not real spectral content. The earlier entry
+  was right that there's no way to model the continuous/DMA ADC
+  `fft.cpp`'s real sampling needs, but that's the wrong layer to fix --
+  `FFT::getBandValue(int i)` is the one place every consumer
+  (`getBandValueFft` in Lua, `lualib/fft.lua`'s `getSpeechLevel()`) ever
+  reads a band's energy from, the same shape as the already-proven
+  `digitalRead()` override used for the boop sensor. Firmware-emu patch
+  `0015-emu-fft-mic-override.patch` adds a third console command
+  (`MIC:<energy>\n`) that overrides every band's return with that value
+  until a new one arrives. The launcher's new optional "Mic" button
+  captures the host microphone via the `sounddevice` package (the one
+  launcher dependency outside the standard library; button stays
+  disabled with install instructions if it's missing), maps the level
+  to dBFS (a standard, perceptually-linear VU-meter domain) and scales
+  it onto the SD card's own `fft.speech_min_energy`/`max_energy` range,
+  spread evenly over `speech_band_start..speech_band_end`. A VU meter
+  next to the button shows the live level with a marker at
+  `speech_frist_frame_threshold`, the firmware's own activation point.
+  Regression tests: `tests/test_launcher.py::RmsToLevelMappingTests`,
+  `MicSendLoopInjectsScaledEnergyTests`, `MicThresholdFractionTests`,
+  `MicButtonReflectsAvailabilityTests`. Verified end to end against a
+  real boot on the user's own SD card: a direct probe
+  (`getBandValueFft(2)`) tracked every injected `MIC:<n>` value exactly;
+  separately confirmed the console-command parser and the override
+  itself add no UART log volume (no echo print, unlike IR/GPIO), since
+  this channel streams continuously rather than firing once per action.

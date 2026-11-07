@@ -10,12 +10,24 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import pathlib
 import re
+import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import Any
+
+try:
+    import sounddevice as _sounddevice  # type: ignore[import-untyped]
+except Exception:
+    # Optional dependency: the microphone VU meter/FFT-level override is
+    # the only feature that needs it (sounddevice -> PortAudio -> an
+    # actual host input device). Everything else in the launcher works
+    # with the standard library alone; this just disables the Mic button
+    # instead of crashing the whole launcher on import.
+    _sounddevice = None
 
 from . import supervisor
 
@@ -272,6 +284,21 @@ class LauncherApp:
         self.boop_near = False
         self._boop_default_sent = True  # no session yet, nothing pending
         self._hold_repeat_id: str | None = None
+        # Microphone -> FFT-level override. See _load_mic_config() for the
+        # SD card's own speech_band_start/end/min_energy/max_energy and
+        # _start_mic_capture() for how a host RMS level maps into that
+        # same domain.
+        self.fft_enabled = False
+        self.fft_band_start = 2
+        self.fft_band_end = 8
+        self.fft_min_energy = 50000
+        self.fft_max_energy = 200000
+        self.fft_frist_frame_threshold = 40000
+        self._mic_stream = None
+        self._mic_active = False
+        self._mic_level = 0.0
+        self._mic_level_lock = threading.Lock()
+        self._mic_send_job_id: str | None = None
 
         self.hostdir_var = tk.StringVar(value="No folder selected")
         self.firmware_var = tk.StringVar(value="Auto-detected")
@@ -555,20 +582,31 @@ class LauncherApp:
         lower = ttk.Frame(preview)
         lower.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         lower.columnconfigure(0, weight=1)
-        lower.rowconfigure(2, weight=1)
+        lower.rowconfigure(5, weight=1)
         ttk.Label(lower, text="LED strip (buffer capture, not a verified hardware trace)",
                  foreground=DARK_FG_MUTED).grid(row=0, column=0, sticky="w")
         self.led_canvas = tk.Canvas(lower, height=28, bg=DARK_CANVAS_BG,
                                     highlightthickness=1, highlightbackground=DARK_BORDER)
         self.led_canvas.grid(row=1, column=0, sticky="ew", pady=(2, 8))
         self.led_canvas.bind("<Configure>", lambda _e: self._redraw_led_strip_from_cache())
+        ttk.Label(lower, text="Microphone (host capture -> FFT level override; line marks the activation threshold)",
+                 foreground=DARK_FG_MUTED).grid(row=2, column=0, sticky="w")
+        mic_row = ttk.Frame(lower)
+        mic_row.grid(row=3, column=0, sticky="ew", pady=(2, 8))
+        mic_row.columnconfigure(1, weight=1)
+        self.mic_button = ttk.Button(mic_row, text="Mic", width=6, command=self._toggle_mic)
+        self.mic_button.grid(row=0, column=0, padx=(0, 6))
+        self.mic_canvas = tk.Canvas(mic_row, height=20, bg=DARK_CANVAS_BG,
+                                    highlightthickness=1, highlightbackground=DARK_BORDER)
+        self.mic_canvas.grid(row=0, column=1, sticky="ew")
+        self.mic_canvas.bind("<Configure>", lambda _e: self._draw_vu_meter())
         ttk.Label(lower, textvariable=self.uart_var, foreground=DARK_FG_MUTED).grid(
-            row=2, column=0, sticky="w")
+            row=4, column=0, sticky="w")
         self.uart_text = tk.Text(lower, height=9, width=149, state="disabled", wrap="none",
                                  bg=DARK_CANVAS_BG, fg=DARK_FG, insertbackground=DARK_FG,
                                  relief="solid", borderwidth=1, highlightthickness=1,
                                  highlightbackground=DARK_BORDER, padx=6, pady=4)
-        self.uart_text.grid(row=3, column=0, sticky="nsew")
+        self.uart_text.grid(row=5, column=0, sticky="nsew")
 
     def _lock_aspect_ratio(self) -> None:
         # "Diagonal-only" resize: lock the window's min and max interactive
@@ -601,6 +639,7 @@ class LauncherApp:
         self.hostdir_var.set(str(root))
         self._load_existing_wiring()
         self._load_boop_config()
+        self._load_mic_config()
         self.status_var.set("Folder selected.")
 
     def _load_boop_config(self) -> None:
@@ -617,6 +656,35 @@ class LauncherApp:
             pass
         if hasattr(self, "boop_button"):
             self.boop_button.configure(style="TButton")
+
+    def _load_mic_config(self) -> None:
+        if self._mic_active:
+            self._stop_mic_capture()
+        self.fft_enabled = False
+        self.fft_band_start = 2
+        self.fft_band_end = 8
+        self.fft_min_energy = 50000
+        self.fft_max_energy = 200000
+        self.fft_frist_frame_threshold = 40000
+        if self.hostdir is not None:
+            try:
+                misc = json.loads((self.hostdir / "misc.json").read_text(encoding="utf-8"))
+                fft = misc.get("fft", {})
+                if fft.get("enabled"):
+                    self.fft_enabled = True
+                    self.fft_band_start = int(fft.get("speech_band_start", self.fft_band_start))
+                    self.fft_band_end = int(fft.get("speech_band_end", self.fft_band_end))
+                    self.fft_min_energy = int(fft.get("speech_min_energy", self.fft_min_energy))
+                    self.fft_max_energy = int(fft.get("speech_max_energy", self.fft_max_energy))
+                    self.fft_frist_frame_threshold = int(
+                        fft.get("speech_frist_frame_threshold", self.fft_frist_frame_threshold))
+            except (OSError, json.JSONDecodeError, AttributeError, TypeError, ValueError):
+                pass
+        if hasattr(self, "mic_button"):
+            can_use_mic = self.fft_enabled and _sounddevice is not None
+            self.mic_button.configure(state="normal" if can_use_mic else "disabled")
+        if hasattr(self, "mic_canvas"):
+            self._draw_vu_meter()
 
     def choose_folder(self) -> None:
         chosen = filedialog.askdirectory(parent=self.root, title="Choose the Protopanda SD folder",
@@ -802,6 +870,111 @@ class LauncherApp:
         else:
             self.boop_near = not self.boop_near  # revert, the write failed
             self.status_var.set("Failed to write to the session console.")
+
+    # Host RMS maps to dBFS (standard VU-meter domain, perceptually linear,
+    # unlike raw amplitude) clamped to [MIC_DB_FLOOR, MIC_DB_CEIL], then
+    # that 0..1 fraction scales onto [0, fft_max_energy * MIC_HEADROOM] --
+    # the per-band value "MIC:<n>" injects. The headroom multiplier lets a
+    # louder-than-"max" voice still read as full rather than clipping the
+    # meter exactly at the configured max.
+    MIC_DB_FLOOR = -50.0
+    MIC_DB_CEIL = 0.0
+    MIC_HEADROOM = 1.2
+    MIC_SEND_INTERVAL_MS = 100
+
+    def _toggle_mic(self) -> None:
+        if self._mic_active:
+            self._stop_mic_capture()
+        else:
+            self._start_mic_capture()
+
+    def _start_mic_capture(self) -> None:
+        if _sounddevice is None:
+            messagebox.showerror(
+                "Microphone unavailable",
+                "sounddevice isn't installed. Install it, then restart the launcher:\n\n"
+                "  sudo apt install libportaudio2\n"
+                "  pip install sounddevice",
+                parent=self.root)
+            return
+        if self._mic_stream is not None:
+            return
+
+        def audio_callback(indata, frames, time_info, status):  # noqa: ANN001 - sounddevice callback signature
+            rms = float((indata.astype("float64") ** 2).mean() ** 0.5)
+            with self._mic_level_lock:
+                self._mic_level = rms
+
+        try:
+            self._mic_stream = _sounddevice.InputStream(
+                channels=1, samplerate=16000, blocksize=800, callback=audio_callback)
+            self._mic_stream.start()
+        except Exception as exc:
+            self._mic_stream = None
+            self.status_var.set(f"Could not open microphone: {exc}")
+            return
+        self._mic_active = True
+        self.mic_button.configure(style="BoopActive.TButton")
+        self._mic_send_loop()
+
+    def _stop_mic_capture(self) -> None:
+        if self._mic_send_job_id is not None:
+            self.root.after_cancel(self._mic_send_job_id)
+            self._mic_send_job_id = None
+        if self._mic_stream is not None:
+            self._mic_stream.stop()
+            self._mic_stream.close()
+            self._mic_stream = None
+        self._mic_active = False
+        with self._mic_level_lock:
+            self._mic_level = 0.0
+        if hasattr(self, "mic_button"):
+            self.mic_button.configure(style="TButton")
+        self._draw_vu_meter()
+        if self.handle is not None and not self.handle.wait(timeout=0):
+            self.handle.send_serial_input("MIC:0\n")
+
+    def _rms_to_level(self, rms: float) -> float:
+        db = 20.0 * math.log10(max(rms, 1e-6))
+        level = (db - self.MIC_DB_FLOOR) / (self.MIC_DB_CEIL - self.MIC_DB_FLOOR)
+        return max(0.0, min(1.0, level))
+
+    def _mic_send_loop(self) -> None:
+        if not self._mic_active:
+            return
+        with self._mic_level_lock:
+            rms = self._mic_level
+        level = self._rms_to_level(rms)
+        if self.handle is not None and not self.handle.wait(timeout=0):
+            num_bands = max(1, self.fft_band_end - self.fft_band_start + 1)
+            total_energy = level * self.fft_max_energy * self.MIC_HEADROOM
+            per_band = int(total_energy / num_bands)
+            self.handle.send_serial_input(f"MIC:{per_band}\n")
+        self._draw_vu_meter(level)
+        self._mic_send_job_id = self.root.after(self.MIC_SEND_INTERVAL_MS, self._mic_send_loop)
+
+    def _mic_threshold_fraction(self) -> float:
+        """Where the activation threshold (speech_frist_frame_threshold)
+        sits in the meter's 0..1 display domain, given the same headroom
+        scaling _mic_send_loop() uses to turn a level into a per-band
+        energy value. Kept separate from _draw_vu_meter so the mapping is
+        testable without real Tk window geometry."""
+        headroom_energy = self.fft_max_energy * self.MIC_HEADROOM
+        if headroom_energy <= 0:
+            return 0.0
+        return max(0.0, min(1.0, self.fft_frist_frame_threshold / headroom_energy))
+
+    def _draw_vu_meter(self, level: float = 0.0) -> None:
+        canvas = self.mic_canvas
+        canvas.delete("all")
+        w = max(1, canvas.winfo_width())
+        h = max(1, canvas.winfo_height())
+        fill_w = int(w * max(0.0, min(1.0, level)))
+        if fill_w > 0:
+            color = DARK_RED if level >= 0.95 else DARK_ACCENT
+            canvas.create_rectangle(0, 0, fill_w, h, fill=color, outline="")
+        mx = int(w * self._mic_threshold_fraction())
+        canvas.create_line(mx, 0, mx, h, fill=DARK_FG, width=2)
 
     def start_session(self) -> None:
         if self.handle is not None and not self.handle.wait(timeout=0):
@@ -1005,6 +1178,8 @@ class LauncherApp:
         if self._after_id is not None:
             self.root.after_cancel(self._after_id)
         self._stop_button_hold()
+        if self._mic_active:
+            self._stop_mic_capture()
         if self.handle is not None and self.handle.session_report().get("exit_reason") is None:
             self.stop_session()
         self.root.destroy()

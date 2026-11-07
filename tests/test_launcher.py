@@ -661,5 +661,179 @@ class DrawLedStripRendersEachColorTests(unittest.TestCase):
         self.assertIsNone(app._led_photo)
 
 
+class RmsToLevelMappingTests(unittest.TestCase):
+    """_rms_to_level() maps host microphone RMS to a 0..1 dBFS-domain
+    meter fraction, floor/ceil-clamped at MIC_DB_FLOOR/MIC_DB_CEIL --
+    a linear-amplitude mapping would make the meter barely move for
+    normal speech, since audio RMS is log-distributed in practice."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_full_scale_rms_is_full_meter(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        self.assertAlmostEqual(app._rms_to_level(1.0), 1.0, places=6)
+
+    def test_silence_is_empty_meter(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        self.assertEqual(app._rms_to_level(0.0), 0.0)
+
+    def test_floor_db_is_empty_meter(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        floor_rms = 10 ** (app.MIC_DB_FLOOR / 20.0)
+        self.assertAlmostEqual(app._rms_to_level(floor_rms), 0.0, places=6)
+
+
+class MicSendLoopInjectsScaledEnergyTests(unittest.TestCase):
+    """Each tick must inject the SAME per-band value for every band in the
+    card's configured speech_band_start..speech_band_end range (the
+    firmware only ever sums whatever getBandValueFft() returns across
+    that range, per lualib/fft.lua's getSpeechLevel), computed as
+    level * fft_max_energy * MIC_HEADROOM spread evenly over the band
+    count -- not the raw host RMS and not a single full-scale value."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_injects_energy_spread_over_the_configured_band_count(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.fft_band_start, app.fft_band_end = 2, 8  # 7 bands, this user's real config
+        app.fft_max_energy = 200000
+        app.handle = FakeSerialHandle()
+        app._mic_active = True
+        app._mic_level = 1.0  # 0 dBFS -> full-scale level
+        try:
+            app._mic_send_loop()
+        finally:
+            if app._mic_send_job_id is not None:
+                self.root.after_cancel(app._mic_send_job_id)
+        expected = int(200000 * app.MIC_HEADROOM / 7)
+        self.assertEqual(app.handle.sent, [f"MIC:{expected}\n"])
+
+    def test_no_session_does_not_crash_and_sends_nothing(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app._mic_active = True
+        app._mic_level = 1.0
+        try:
+            app._mic_send_loop()
+        finally:
+            if app._mic_send_job_id is not None:
+                self.root.after_cancel(app._mic_send_job_id)
+        # no exception, nothing to assert on -- there was no handle to send to
+
+
+class MicThresholdFractionTests(unittest.TestCase):
+    """The VU meter's threshold marker must sit at the SAME position the
+    energy injection would reach once the host level is loud enough to
+    cross speech_frist_frame_threshold -- using a different scale for the
+    marker than for the injected value would make the line lie."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_matches_this_users_real_config(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.fft_max_energy = 200000
+        app.fft_frist_frame_threshold = 40000
+        expected = 40000 / (200000 * app.MIC_HEADROOM)
+        self.assertAlmostEqual(app._mic_threshold_fraction(), expected, places=9)
+
+    def test_clamped_to_one_when_threshold_exceeds_headroom(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.fft_max_energy = 100
+        app.fft_frist_frame_threshold = 999999
+        self.assertEqual(app._mic_threshold_fraction(), 1.0)
+
+
+class MicButtonReflectsAvailabilityTests(unittest.TestCase):
+    """The Mic button must only be enabled when BOTH this SD card's
+    misc.json actually turns FFT speech detection on and sounddevice is
+    importable -- clicking it in either missing case would silently do
+    nothing useful (no band range to scale onto / no capture library)."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def _hostdir_with_fft(self, directory, enabled):
+        path = Path(directory) / "misc.json"
+        path.write_text(json.dumps({"fft": {
+            "enabled": enabled, "speech_band_start": 2, "speech_band_end": 8,
+            "speech_min_energy": 50000, "speech_max_energy": 200000,
+            "speech_frist_frame_threshold": 40000,
+        }}), encoding="utf-8")
+        return directory
+
+    def test_disabled_when_fft_not_enabled_on_card(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        original = launcher._sounddevice
+        launcher._sounddevice = object()  # pretend it's installed
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                app.set_hostdir(self._hostdir_with_fft(directory, enabled=False))
+            self.assertEqual(str(app.mic_button["state"]), "disabled")
+        finally:
+            launcher._sounddevice = original
+
+    def test_disabled_when_sounddevice_not_installed(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        original = launcher._sounddevice
+        launcher._sounddevice = None  # pretend it's missing
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                app.set_hostdir(self._hostdir_with_fft(directory, enabled=True))
+            self.assertEqual(str(app.mic_button["state"]), "disabled")
+        finally:
+            launcher._sounddevice = original
+
+    def test_enabled_when_both_present(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        original = launcher._sounddevice
+        launcher._sounddevice = object()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                app.set_hostdir(self._hostdir_with_fft(directory, enabled=True))
+            self.assertEqual(str(app.mic_button["state"]), "normal")
+        finally:
+            launcher._sounddevice = original
+
+
 if __name__ == "__main__":
     unittest.main()
