@@ -298,10 +298,17 @@ class LauncherApp:
         self._mic_active = False
         self._mic_level = 0.0
         self._mic_level_lock = threading.Lock()
-        self._mic_send_job_id: str | None = None
         self.mic_device_indices: list[int | None] = [None]
         self.mic_threshold_var = tk.StringVar(value="")
+        self.mic_level_var = tk.StringVar(value="")
         self.mic_gain_var = tk.DoubleVar(value=3.0)
+        self.fft_band_count = 32
+        self.eq_window: tk.Toplevel | None = None
+        self.eq_band_vars: list[tk.IntVar] = []
+        self.eq_band_values: list[int] = []
+        self.eq_boost_var = tk.DoubleVar(value=1.0)
+        self.eq_use_mic_var = tk.BooleanVar(value=False)
+        self._injection_job_id: str | None = None
 
         self.hostdir_var = tk.StringVar(value="No folder selected")
         self.firmware_var = tk.StringVar(value="Auto-detected")
@@ -603,14 +610,17 @@ class LauncherApp:
         self.mic_device_combo = ttk.Combobox(mic_row, state="readonly", width=24)
         self.mic_device_combo.grid(row=0, column=2, sticky="ew")
         ttk.Label(mic_row, text="Gain:", foreground=DARK_FG_MUTED).grid(row=0, column=3, padx=(8, 4))
-        self.mic_gain_spin = ttk.Spinbox(mic_row, from_=0.5, to=8.0, increment=0.5, width=4,
+        self.mic_gain_spin = ttk.Spinbox(mic_row, from_=0.1, to=50.0, increment=0.5, width=5,
                                          textvariable=self.mic_gain_var)
         self.mic_gain_spin.grid(row=0, column=4)
         ttk.Label(mic_row, textvariable=self.mic_threshold_var, foreground=DARK_FG_MUTED).grid(
-            row=0, column=5, sticky="e", padx=(8, 0))
+            row=0, column=5, sticky="e", padx=(8, 8))
+        ttk.Button(mic_row, text="Equalizer...", command=self._open_equalizer).grid(row=0, column=6)
+        ttk.Label(mic_row, textvariable=self.mic_level_var, foreground=DARK_FG_MUTED).grid(
+            row=1, column=0, columnspan=7, sticky="w", pady=(2, 0))
         self.mic_canvas = tk.Canvas(mic_row, height=14, bg=DARK_CANVAS_BG,
                                     highlightthickness=1, highlightbackground=DARK_BORDER)
-        self.mic_canvas.grid(row=1, column=0, columnspan=6, sticky="ew", pady=(3, 0))
+        self.mic_canvas.grid(row=2, column=0, columnspan=7, sticky="ew", pady=(3, 0))
         self.mic_canvas.bind("<Configure>", lambda _e: self._draw_vu_meter())
         self._populate_mic_devices()
         ttk.Label(lower, textvariable=self.uart_var, foreground=DARK_FG_MUTED).grid(
@@ -673,9 +683,12 @@ class LauncherApp:
     def _load_mic_config(self) -> None:
         if self._mic_active:
             self._stop_mic_capture()
+        if self.eq_window is not None:
+            self._close_equalizer()
         self.fft_enabled = False
         self.fft_band_start = 2
         self.fft_band_end = 8
+        self.fft_band_count = 32
         self.fft_min_energy = 50000
         self.fft_max_energy = 200000
         self.fft_frist_frame_threshold = 40000
@@ -687,6 +700,7 @@ class LauncherApp:
                     self.fft_enabled = True
                     self.fft_band_start = int(fft.get("speech_band_start", self.fft_band_start))
                     self.fft_band_end = int(fft.get("speech_band_end", self.fft_band_end))
+                    self.fft_band_count = int(fft.get("band_count", self.fft_band_count))
                     self.fft_min_energy = int(fft.get("speech_min_energy", self.fft_min_energy))
                     self.fft_max_energy = int(fft.get("speech_max_energy", self.fft_max_energy))
                     self.fft_frist_frame_threshold = int(
@@ -895,9 +909,10 @@ class LauncherApp:
     # louder-than-"max" voice still read as full rather than clipping the
     # meter exactly at the configured max. The floor is tuned generous
     # (quiet unboosted laptop/USB mics can sit well below -50 dBFS during
-    # normal speech); mic_gain_var is an additional user-adjustable boost
-    # on top of that for whatever's still too quiet on a given machine.
-    MIC_DB_FLOOR = -62.0
+    # normal speech); mic_gain_var is an additional user-adjustable boost,
+    # with a wide range since real capture levels vary enormously by
+    # device/OS mixer settings and can't be guessed from here.
+    MIC_DB_FLOOR = -75.0
     MIC_DB_CEIL = 0.0
     MIC_HEADROOM = 1.2
     MIC_SEND_INTERVAL_MS = 100
@@ -976,12 +991,9 @@ class LauncherApp:
             return
         self._mic_active = True
         self.mic_button.configure(style="BoopActive.TButton")
-        self._mic_send_loop()
+        self._ensure_injection_loop()
 
     def _stop_mic_capture(self) -> None:
-        if self._mic_send_job_id is not None:
-            self.root.after_cancel(self._mic_send_job_id)
-            self._mic_send_job_id = None
         if self._mic_stream is not None:
             self._mic_stream.stop()
             self._mic_stream.close()
@@ -992,8 +1004,17 @@ class LauncherApp:
         if hasattr(self, "mic_button"):
             self.mic_button.configure(style="TButton")
         self._draw_vu_meter()
-        if self.handle is not None and not self.handle.wait(timeout=0):
-            self.handle.send_serial_input("MIC:0\n")
+        self.mic_level_var.set("")
+        eq_open = self.eq_window is not None and self.eq_window.winfo_exists()
+        if not eq_open:
+            if self._injection_job_id is not None:
+                self.root.after_cancel(self._injection_job_id)
+                self._injection_job_id = None
+            if self.handle is not None and not self.handle.wait(timeout=0):
+                for band in range(self.fft_band_start, self.fft_band_end + 1):
+                    self.handle.send_serial_input(f"MIC:{band}:-1\n")
+        # if the Equalizer is still open, its own tick (already scheduled)
+        # keeps driving every band -- nothing more to release here.
 
     def _rms_to_level(self, rms: float) -> float:
         gain = max(0.1, self.mic_gain_var.get())
@@ -1001,30 +1022,161 @@ class LauncherApp:
         level = (db - self.MIC_DB_FLOOR) / (self.MIC_DB_CEIL - self.MIC_DB_FLOOR)
         return max(0.0, min(1.0, level))
 
-    def _mic_send_loop(self) -> None:
-        if not self._mic_active:
-            return
-        with self._mic_level_lock:
-            rms = self._mic_level
-        level = self._rms_to_level(rms)
-        if self.handle is not None and not self.handle.wait(timeout=0):
-            num_bands = max(1, self.fft_band_end - self.fft_band_start + 1)
-            total_energy = level * self.fft_max_energy * self.MIC_HEADROOM
-            per_band = int(total_energy / num_bands)
-            self.handle.send_serial_input(f"MIC:{per_band}\n")
-        self._draw_vu_meter(level)
-        self._mic_send_job_id = self.root.after(self.MIC_SEND_INTERVAL_MS, self._mic_send_loop)
-
     def _mic_threshold_fraction(self) -> float:
         """Where the activation threshold (speech_frist_frame_threshold)
         sits in the meter's 0..1 display domain, given the same headroom
-        scaling _mic_send_loop() uses to turn a level into a per-band
+        scaling the injection loop uses to turn a level into a per-band
         energy value. Kept separate from _draw_vu_meter so the mapping is
         testable without real Tk window geometry."""
         headroom_energy = self.fft_max_energy * self.MIC_HEADROOM
         if headroom_energy <= 0:
             return 0.0
         return max(0.0, min(1.0, self.fft_frist_frame_threshold / headroom_energy))
+
+    def _ensure_injection_loop(self) -> None:
+        if self._injection_job_id is None:
+            self._injection_loop()
+
+    def _injection_loop(self) -> None:
+        """Single driver for both the Mic button and the Equalizer popup,
+        since they can now run together (the Equalizer's "scale by live
+        mic level" option needs both at once): whichever is open decides
+        what gets sent each tick, so there is never a race between two
+        independent timers fighting over the same bands."""
+        eq_open = self.eq_window is not None and self.eq_window.winfo_exists()
+        if not self._mic_active and not eq_open:
+            self._injection_job_id = None
+            return
+        with self._mic_level_lock:
+            rms = self._mic_level
+        level = self._rms_to_level(rms) if self._mic_active else 0.0
+        if self._mic_active:
+            self._draw_vu_meter(level)
+            db = 20.0 * math.log10(max(rms, 1e-10))
+            self.mic_level_var.set(f"Captured: {rms:.5f} RMS ({db:.1f} dBFS raw, before gain)")
+        if self.handle is not None and not self.handle.wait(timeout=0):
+            if eq_open:
+                boost = max(0.0, self.eq_boost_var.get())
+                if self.eq_use_mic_var.get():
+                    scale = level if self._mic_active else 0.0
+                else:
+                    scale = 1.0
+                for band, var in enumerate(self.eq_band_vars):
+                    value = max(0, int(var.get() * boost * scale))
+                    self.handle.send_serial_input(f"MIC:{band}:{value}\n")
+            elif self._mic_active:
+                num_bands = max(1, self.fft_band_end - self.fft_band_start + 1)
+                total_energy = level * self.fft_max_energy * self.MIC_HEADROOM
+                per_band = int(total_energy / num_bands)
+                for band in range(self.fft_band_start, self.fft_band_end + 1):
+                    self.handle.send_serial_input(f"MIC:{band}:{per_band}\n")
+        self._injection_job_id = self.root.after(self.MIC_SEND_INTERVAL_MS, self._injection_loop)
+
+    def _eq_slider_max(self) -> int:
+        return max(int(self.fft_max_energy * 2), 100000)
+
+    def _eq_set_all(self, value: int) -> None:
+        for var in self.eq_band_vars:
+            var.set(value)
+
+    def _eq_set_speech_range(self) -> None:
+        top = self._eq_slider_max()
+        for band, var in enumerate(self.eq_band_vars):
+            var.set(top if self.fft_band_start <= band <= self.fft_band_end else 0)
+
+    def _open_equalizer(self) -> None:
+        if self.eq_window is not None and self.eq_window.winfo_exists():
+            self.eq_window.lift()
+            self.eq_window.focus_force()
+            return
+        if not self.fft_enabled:
+            messagebox.showerror(
+                "Equalizer not usable for this SD card",
+                "This SD card's misc.json does not have fft.enabled set to "
+                "true, so the firmware never reads FFT band energy -- "
+                "there is nothing for these bands to drive.",
+                parent=self.root)
+            return
+
+        win = tk.Toplevel(self.root)
+        win.title("FFT equalizer (manual per-band override)")
+        win.configure(bg=DARK_BG)
+        win.protocol("WM_DELETE_WINDOW", self._close_equalizer)
+        self.eq_window = win
+
+        ttk.Label(win, text=(
+            "Drives each FFT band directly -- a single uniform level (what the Mic\n"
+            "button alone sends) makes every band rise together, which may not be\n"
+            "what the firmware's speech detection needs; use these to try any shape\n"
+            "and push well past the configured max if you want."),
+            foreground=DARK_FG_MUTED, justify="left").pack(anchor="w", padx=10, pady=(10, 4))
+
+        controls = ttk.Frame(win)
+        controls.pack(anchor="w", padx=10, pady=(0, 6))
+        ttk.Label(controls, text="Boost:", foreground=DARK_FG_MUTED).pack(side="left")
+        ttk.Spinbox(controls, from_=0.1, to=10.0, increment=0.1, width=5,
+                   textvariable=self.eq_boost_var).pack(side="left", padx=(4, 12))
+        ttk.Checkbutton(controls, text="Scale by live mic level",
+                        variable=self.eq_use_mic_var).pack(side="left", padx=(0, 12))
+        ttk.Button(controls, text="All to max",
+                  command=lambda: self._eq_set_all(self._eq_slider_max())).pack(side="left", padx=4)
+        ttk.Button(controls, text="Clear all", command=lambda: self._eq_set_all(0)).pack(side="left", padx=4)
+        ttk.Button(controls, text="Speech range only",
+                  command=self._eq_set_speech_range).pack(side="left", padx=4)
+        ttk.Label(win, text=(
+            "\"Scale by live mic level\" multiplies every slider by the Mic button's "
+            "captured level each tick (0 if Mic isn't running) -- turn on Mic too to "
+            "use the sliders as a per-band shape for the real captured sound instead "
+            "of a static test pattern."), foreground=DARK_FG_MUTED, justify="left",
+            wraplength=900).pack(anchor="w", padx=10, pady=(0, 6))
+
+        sliders = ttk.Frame(win)
+        sliders.pack(padx=10, pady=4)
+        self.eq_band_vars = []
+        if len(self.eq_band_values) != self.fft_band_count:
+            self.eq_band_values = [0] * self.fft_band_count
+        slider_max = self._eq_slider_max()
+        for band in range(self.fft_band_count):
+            in_speech_range = self.fft_band_start <= band <= self.fft_band_end
+            var = tk.IntVar(value=self.eq_band_values[band])
+            # Persist every change immediately (not just on Close) --
+            # restoring 0 here on each reopen was the bug: a slider you
+            # dragged, closed the popup, and reopened showed 0 again,
+            # even though nothing on the console side had reset.
+            var.trace_add("write", lambda *_a, b=band, v=var: self.eq_band_values.__setitem__(b, v.get()))
+            self.eq_band_vars.append(var)
+            column = ttk.Frame(sliders)
+            column.grid(row=0, column=band, padx=1)
+            scale = tk.Scale(column, from_=slider_max, to=0, orient="vertical", length=180,
+                             width=12, sliderlength=16, variable=var, showvalue=False,
+                             bg=DARK_PANEL_ALT, fg=DARK_FG, troughcolor=DARK_CANVAS_BG,
+                             highlightthickness=0, bd=0,
+                             activebackground=DARK_ACCENT if in_speech_range else DARK_FG_MUTED)
+            scale.pack()
+            ttk.Label(column, text=str(band),
+                     foreground=DARK_ACCENT if in_speech_range else DARK_FG_MUTED).pack()
+
+        ttk.Label(win, text=(
+            f"Bands {self.fft_band_start}-{self.fft_band_end} (highlighted) are what this "
+            "SD card's speech detection actually sums; the rest are shown for completeness "
+            "but ignored by it."), foreground=DARK_FG_MUTED).pack(anchor="w", padx=10, pady=(4, 6))
+        ttk.Button(win, text="Close", command=self._close_equalizer).pack(pady=(0, 10))
+
+        self._ensure_injection_loop()
+
+    def _close_equalizer(self) -> None:
+        if self.handle is not None and not self.handle.wait(timeout=0):
+            for band in range(self.fft_band_count):
+                self.handle.send_serial_input(f"MIC:{band}:-1\n")
+        if self.eq_window is not None and self.eq_window.winfo_exists():
+            self.eq_window.destroy()
+        self.eq_window = None
+        self.eq_band_vars = []
+        if not self._mic_active and self._injection_job_id is not None:
+            self.root.after_cancel(self._injection_job_id)
+            self._injection_job_id = None
+        # if Mic is still active, the already-scheduled loop tick resumes
+        # driving the configured speech band range on its own next pass.
 
     def _draw_vu_meter(self, level: float = 0.0) -> None:
         canvas = self.mic_canvas
@@ -1242,6 +1394,8 @@ class LauncherApp:
         self._stop_button_hold()
         if self._mic_active:
             self._stop_mic_capture()
+        if self.eq_window is not None:
+            self._close_equalizer()
         if self.handle is not None and self.handle.session_report().get("exit_reason") is None:
             self.stop_session()
         self.root.destroy()

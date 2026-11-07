@@ -188,10 +188,10 @@ runs with no radio so BLE-gated driver `onEnable()` calls pass under
 UART) injects virtual IR button presses, a second console command
 (`GPIO:<pin>:<0|1>\n`) overrides any digital input pin's read value (used
 for the boop proximity-sensor toggle below), a third console command
-(`MIC:<energy>\n`) overrides `FFT::getBandValue()`'s return for every
-band -- the same loudness-only override the Mic VU meter below drives
-from the host's own microphone, since this backend has no model for the
-continuous/DMA ADC `fft.cpp`'s real sampling needs -- the real
+(`MIC:<band>:<value>\n`) overrides `FFT::getBandValue(band)`'s return
+for one band -- the same per-band override both the Mic VU meter and
+the Equalizer popup below drive, since this backend has no model for
+the continuous/DMA ADC `fft.cpp`'s real sampling needs -- the real
 `FastLED.show()` WS2812 write stays stubbed out (QEMU's RMT model
 completes the transaction but doesn't decode signal timing, so there's
 no wire to light); dump the real `LedStrip::Display()` computed color
@@ -235,18 +235,36 @@ system library, e.g. `sudo apt install libportaudio2`); when a "pulse"
 device is present it's preselected over PortAudio's own notion of
 "default", which on a typical PulseAudio desktop can resolve to a raw
 ALSA device PulseAudio already holds, opening silent or failing
-outright. A "Gain" spinbox (0.5x-8x, default 3x) boosts the captured
-level before it's mapped to dBFS -- quiet, unboosted mics commonly
-need it, since normal speech can sit well under the meter's -62 dBFS
-floor without one. The level streams into the `MIC:<energy>\n`
+outright. A line below the VU meter shows the live captured RMS and
+raw dBFS so you can tell whether a quiet result means "no signal
+reaching here" or "signal reaching here, just needs more gain". A
+"Gain" spinbox (0.1x-50x, default 3x) boosts the captured level before
+it's mapped to dBFS -- quiet, unboosted laptop/USB mics commonly need
+a lot of it. The level streams into the `MIC:<band>:<energy>\n`
 override above, scaled into the SD card's own
 `fft.speech_min_energy`/`speech_max_energy` range; a label next to the
-VU meter shows the exact `fft.speech_frist_frame_threshold` value, the
-same activation point the firmware's own speech detection uses. This
-is the only launcher feature outside the standard library. The button
-stays clickable even when it can't start (this SD card's `misc.json`
-doesn't have `fft.enabled: true`, or `sounddevice` isn't installed)
-and explains why instead of just sitting there disabled.
+Gain spinbox shows the exact `fft.speech_frist_frame_threshold` value,
+the same activation point the firmware's own speech detection uses.
+This is the only launcher feature outside the standard library. The
+button stays clickable even when it can't start (this SD card's
+`misc.json` doesn't have `fft.enabled: true`, or `sounddevice` isn't
+installed) and explains why instead of just sitting there disabled.
+An "Equalizer..." button next to it opens a popup with one vertical
+slider per FFT band (`fft.band_count` of them; the configured speech
+range highlighted) plus a "Boost" multiplier, for setting each band's
+energy directly -- useful since a uniform level (what the Mic button
+alone sends) makes every band rise together, and the firmware's
+speech detection may not react to that the same way it would to real,
+uneven speech energy. Mic and Equalizer can run together: a "Scale by
+live mic level" checkbox multiplies every slider by the Mic button's
+captured level each tick, turning the sliders into a per-band shape
+for the real captured sound (0 whenever Mic isn't running) instead of
+a static test pattern. Closing the Equalizer releases every band back
+to the real (always-zero) read on the console side, but the slider
+positions themselves are remembered and restored exactly if you reopen
+it later in the same launcher session; turning Mic off independently
+releases just the configured speech range, leaving the Equalizer (if
+still open) in full control.
 
 ### Verify the OLED output
 

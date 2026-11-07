@@ -192,11 +192,11 @@ SD, `BleManager::begin()` roda sem rádio para que chamadas de
 pressionamentos de IR virtuais, um segundo comando de console
 (`GPIO:<pin>:<0|1>\n`) sobrepõe o valor de leitura de qualquer pino de
 entrada digital (usado pelo toggle do sensor de proximidade boop
-abaixo), um terceiro comando de console (`MIC:<energia>\n`) sobrepõe o
-retorno de `FFT::getBandValue()` pra toda banda — a mesma sobreposição
-só-de-volume que o VU meter de Mic abaixo aciona a partir do microfone
-do próprio host, já que este backend não tem modelo pro ADC
-contínuo/DMA que a amostragem real do `fft.cpp` exige — a gravação real
+abaixo), um terceiro comando de console (`MIC:<banda>:<valor>\n`)
+sobrepõe o retorno de `FFT::getBandValue(banda)` pra uma banda — a
+mesma sobreposição por banda que tanto o VU meter de Mic quanto o
+popup Equalizer abaixo acionam, já que este backend não tem modelo pro
+ADC contínuo/DMA que a amostragem real do `fft.cpp` exige — a gravação real
 de WS2812 via `FastLED.show()` continua stubada (o modelo de RMT do
 QEMU completa a transação mas não decodifica o timing do sinal, então
 não há fio pra acender); em vez disso despeja o buffer de cor real que
@@ -238,23 +238,37 @@ dropdown "Input" lista os microfones disponíveis no host
 (`sounddevice.query_devices()`); quando existe um device "pulse" ele é
 pré-selecionado em vez do "default" do PortAudio, que num desktop
 PulseAudio típico pode resolver pra um device ALSA cru que o
-PulseAudio já segura, abrindo silencioso ou falhando de vez. Um botão
-"Mic" começa a capturar o selecionado através do pacote opcional
-[`sounddevice`](https://python-sounddevice.readthedocs.io/) (`pip
-install sounddevice`; no Linux também precisa da biblioteca de sistema
-`libportaudio2`, ex. `sudo apt install libportaudio2`). Um spinbox
-"Gain" (0.5x-8x, padrão 3x) amplifica o nível capturado antes de mapear
-pra dBFS -- mic sem ganho costuma precisar disso, já que fala normal
-fica bem abaixo do piso de -62 dBFS do medidor sem um boost. O nível
-vai pela sobreposição `MIC:<energia>\n` acima, escalado pro intervalo
+PulseAudio já segura, abrindo silencioso ou falhando de vez. Uma linha
+abaixo do VU meter mostra o RMS capturado e o dBFS cru ao vivo, pra
+dar pra distinguir "sem sinal chegando" de "sinal chegando, só precisa
+de mais ganho". Um spinbox "Gain" (0.1x-50x, padrão 3x) amplifica o
+nível capturado antes de mapear pra dBFS -- mic sem boost de laptop/USB
+costuma precisar de bastante disso. O nível vai pela sobreposição
+`MIC:<banda>:<energia>\n` acima, escalado pro intervalo
 `fft.speech_min_energy`/`speech_max_energy` do próprio cartão SD; um
-texto ao lado do VU meter mostra o valor exato de
+texto ao lado do spinbox Gain mostra o valor exato de
 `fft.speech_frist_frame_threshold`, o mesmo ponto de ativação que a
 detecção de fala do firmware usa. Esse é o único recurso do launcher
 fora da biblioteca padrão. O botão continua clicável mesmo quando não
 consegue iniciar (esse cartão SD não tem `fft.enabled: true` no
 `misc.json`, ou o `sounddevice` não está instalado) e explica o motivo
-em vez de simplesmente ficar desabilitado.
+em vez de simplesmente ficar desabilitado. Um botão "Equalizer..." ao
+lado abre um popup com um slider vertical por banda do FFT
+(`fft.band_count` delas; o intervalo de fala configurado fica
+destacado) mais um multiplicador "Boost", pra ajustar a energia de
+cada banda diretamente — útil já que um nível uniforme (o que só o
+botão Mic manda) faz toda banda subir junto, e a detecção de fala do
+firmware pode não reagir do mesmo jeito que reagiria a uma energia de
+fala real e irregular. Mic e Equalizer podem rodar juntos: um checkbox
+"Scale by live mic level" multiplica cada slider pelo nível capturado
+do botão Mic a cada tick, transformando os sliders num formato por
+banda pro som real capturado (0 sempre que o Mic não estiver rodando)
+em vez de um padrão de teste estático. Fechar o Equalizer libera toda
+banda de volta pra leitura real (sempre zero) no lado do console, mas
+as posições dos sliders ficam guardadas e são restauradas exatas se
+você reabrir mais tarde na mesma sessão do launcher; desligar o Mic
+independentemente libera só a faixa de fala configurada, deixando o
+Equalizer (se ainda aberto) no controle total.
 
 ### Verifique a saída do OLED
 

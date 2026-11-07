@@ -1,77 +1,99 @@
 diff --git a/src/main.cpp b/src/main.cpp
-index 1bb9f07..501c471 100644
+index 1bb9f07..2994a7a 100644
 --- a/src/main.cpp
 +++ b/src/main.cpp
-@@ -52,6 +52,21 @@ static void emuSetGpioOverride(int pin, int state) {
+@@ -52,6 +52,37 @@ static void emuSetGpioOverride(int pin, int state) {
    if (pin < 0 || pin >= 49) return;
    g_emuGpioOverride[pin] = (int8_t)state;
  }
 +
-+/* Simulated FFT per-band energy override: FFT::getBandValue() (see
-+ * fft.cpp) returns this for every band index whenever the host has
-+ * injected a level over the console with "MIC:<value>\n", standing in
-+ * for the host microphone's volume since this backend has no
-+ * continuous/DMA ADC model and the firmware only ever treats FFT band
-+ * energy as an overall loudness signal, not real spectral content.
-+ * -1 means "no override, use the real (always-zero) ADC result". */
-+static int g_emuFFTBandOverride = -1;
-+int emuGetFFTBandOverride() {
-+  return g_emuFFTBandOverride;
++/* Simulated FFT per-band energy override: FFT::getBandValue(i) (see
++ * fft.cpp) returns this for band i whenever the host has injected a
++ * level for that band over the console with "MIC:<band>:<value>\n",
++ * standing in for the host microphone's volume since this backend has
++ * no continuous/DMA ADC model and real band index i is never a
++ * meaningful spectral read to begin with. Per-band (not one value for
++ * every band) so the GUI's equalizer popup can drive each band
++ * independently -- a single uniform value made every band rise
++ * together, which doesn't exercise whatever band-shape-sensitive logic
++ * downstream Lua might have. -1 means "no override, use the real
++ * (always-zero) ADC result". Sized for the largest bandCount
++ * FFT::begin() accepts in practice; out-of-range indices are ignored,
++ * matching the real bandCount bounds check in FFT::getBandValue(). */
++static int g_emuFFTBandOverride[64];
++static bool g_emuFFTBandOverrideInit = false;
++static void emuInitFFTBandOverride() {
++  if (g_emuFFTBandOverrideInit) return;
++  for (int i = 0; i < 64; i++) { g_emuFFTBandOverride[i] = -1; }
++  g_emuFFTBandOverrideInit = true;
 +}
-+static void emuSetFFTBandOverride(int value) {
-+  g_emuFFTBandOverride = value;
++int emuGetFFTBandOverride(int band) {
++  emuInitFFTBandOverride();
++  if (band < 0 || band >= 64) return -1;
++  return g_emuFFTBandOverride[band];
++}
++static void emuSetFFTBandOverride(int band, int value) {
++  emuInitFFTBandOverride();
++  if (band < 0 || band >= 64) return;
++  g_emuFFTBandOverride[band] = value;
 +}
  #endif
  
  
-@@ -260,7 +275,12 @@ void loop() {
+@@ -260,7 +291,13 @@ void loop() {
     * "GPIO:<pin>:<0|1>" overrides a simulated digital input pin (e.g. the
     * boop proximity sensor's gpio in trigger_mode="gpio") -- see
     * luainterface.cpp's digitalRead binding, which checks this override
 -   * before falling back to the real hardware read. */
-+   * before falling back to the real hardware read. "MIC:<value>\n"
-+   * overrides every FFT band's energy with <value> (see fft.cpp's
-+   * getBandValue), standing in for the host microphone's level; unlike
-+   * IR/GPIO this is a live stream sent at a steady rate, so it's parsed
-+   * silently -- echoing every one would flood the console the same way
-+   * the old LED/HUB75-brightness dumps would have without throttling. */
++   * before falling back to the real hardware read. "MIC:<band>:<value>\n"
++   * overrides one FFT band's energy with <value> (see fft.cpp's
++   * getBandValue), standing in for the host microphone/equalizer
++   * popup's per-band level; unlike IR/GPIO this is a live stream sent
++   * at a steady rate, so it's parsed silently -- echoing every one
++   * would flood the console the same way the old LED/HUB75-brightness
++   * dumps would have without throttling. */
    static String emuInputLine;
    while (Serial.available()){
      int c = Serial.read();
-@@ -282,6 +302,9 @@ void loop() {
+@@ -282,6 +319,13 @@ void loop() {
            emuSetGpioOverride(emuPin, emuState ? 1 : 0);
            Serial.printf("[EMU] gpio %d override = %d\n", emuPin, emuState ? 1 : 0);
          }
 +      } else if (emuInputLine.startsWith("MIC:")){
-+        int emuValue = atoi(emuInputLine.c_str() + 4);
-+        emuSetFFTBandOverride(emuValue);
++        int emuSep = emuInputLine.indexOf(':', 4);
++        if (emuSep > 0){
++          int emuBand = atoi(emuInputLine.c_str() + 4);
++          int emuValue = atoi(emuInputLine.c_str() + emuSep + 1);
++          emuSetFFTBandOverride(emuBand, emuValue);
++        }
        }
        emuInputLine = "";
      } else if (isprint(c) && emuInputLine.length() < 64){
 diff --git a/src/tools/fft.cpp b/src/tools/fft.cpp
-index 92469a4..9fb9065 100644
+index 92469a4..55e068a 100644
 --- a/src/tools/fft.cpp
 +++ b/src/tools/fft.cpp
-@@ -201,9 +201,26 @@ bool FFT::isRunning(){
+@@ -201,9 +201,27 @@ bool FFT::isRunning(){
      return m_running; 
  }
  
 +#ifdef PROTOPANDAEMU_EMU
-+/* Defined in main.cpp: -1 = no override (use the real, always-zero
-+ * result -- this backend has no continuous/DMA ADC model, so
-+ * readAndAnalyse()'s adc_continuous_read() always times out and
-+ * m_bandValues never gets written), >=0 = a per-band energy value
-+ * injected over the console with "MIC:<value>\n", standing in for the
-+ * host microphone's level since this firmware only ever treats FFT
-+ * band energy as an overall loudness signal, not real spectral content. */
-+int emuGetFFTBandOverride();
++/* Defined in main.cpp: -1 = no override for this band (use the real,
++ * always-zero result -- this backend has no continuous/DMA ADC model,
++ * so readAndAnalyse()'s adc_continuous_read() always times out and
++ * m_bandValues never gets written), >=0 = this band's energy value
++ * injected over the console with "MIC:<band>:<value>\n", standing in
++ * for a host microphone or the GUI's equalizer popup since this
++ * firmware only ever treats FFT band energy as a loudness signal, not
++ * real captured spectral content. */
++int emuGetFFTBandOverride(int band);
 +#endif
 +
  int FFT::getBandValue(int i){
      if (!m_running)               return 0;
      if (i < 0 || i >= m_bandCount) return 0;
 +#ifdef PROTOPANDAEMU_EMU
-+    int override = emuGetFFTBandOverride();
++    int override = emuGetFFTBandOverride(i);
 +    if (override >= 0) {
 +        return override;
 +    }

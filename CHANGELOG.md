@@ -368,3 +368,89 @@
   `tests/test_launcher.py::RmsToLevelMappingTests::test_gain_boosts_a_quiet_signal`,
   updated `test_floor_db_is_empty_meter` to isolate the floor boundary
   from the new gain multiplier.
+- Add a per-band FFT equalizer popup, and switch the mic override
+  protocol from one value shared across every band to
+  `MIC:<band>:<value>\n`. A real user reported the Mic feature still
+  not triggering the firmware's overlay despite its own device-side FFT
+  calibration screen visibly reacting to their voice, and suspected the
+  uniform level -- every band rising together -- might be the problem,
+  since the firmware's own speech detection may key on band *shape*,
+  not just total energy, in ways a flat injected level never produces.
+  Firmware-emu patch `0015-emu-fft-mic-override.patch` regenerated: the
+  override is now a `g_emuFFTBandOverride[64]` array (same pattern as
+  the GPIO override) instead of one scalar, with `FFT::getBandValue(i)`
+  reading index `i` instead of one shared value. The launcher's existing
+  Mic capture now sends the same per-band protocol (one line per
+  configured speech band, same uniform value as before -- its behavior
+  is otherwise unchanged); a new "Equalizer..." popup button gives one
+  vertical slider per FFT band plus a boost multiplier, for setting any
+  band shape directly to test what actually crosses the firmware's
+  activation threshold. Starting either one stops the other, since both
+  drive the same per-band state; closing the Equalizer releases every
+  band back to the real (always-zero) read. Regression tests:
+  `tests/test_launcher.py::EqualizerTests`, updated
+  `MicSendLoopInjectsScaledEnergyTests` for the new per-band wire
+  format. Verified against a real boot: a direct Lua-side probe reading
+  `getBandValueFft(0..4)` showed three injected values (5000, 10000,
+  99999 on bands 1-3) exactly, with bands 0 and 4 unaffected.
+- Fix Mic and the Equalizer stopping each other, and widen Mic's
+  effective gain range. A real user turned push-to-talk off (the actual
+  cause of their earlier "overlay never responds" report -- the
+  firmware ships it ON by default, gating overlay *visibility*, not the
+  underlying FFT level, on holding a button) and still saw no response,
+  this time because the level reaching the firmware was genuinely too
+  quiet to cross the activation threshold with only -62 dBFS of floor
+  and up to 8x gain to work with. Also: opening the Equalizer used to
+  call `_stop_mic_capture()` and vice versa (both drove the same
+  per-band console state through two separate timers, so letting them
+  run concurrently would have had them race and flicker), which meant
+  the Equalizer was never actually a way to *inspect* what the Mic
+  button was sending -- only an alternative to it.
+  - Lowered the meter floor to -75 dBFS and widened the Gain spinbox
+    from 0.5x-8x to 0.1x-50x; confirmed a quiet rms=0.0001 (very quiet
+    speech on an unboosted built-in mic) now crosses a real 40000
+    threshold at gain=10, where the old -62 dBFS floor/8x gain ceiling
+    left it at 0.
+  - Unified Mic and the Equalizer onto one shared `_injection_loop()`
+    (replacing the separate `_mic_send_loop()`/`_eq_send_loop()`) that
+    runs whenever either is active, so they can run together instead of
+    the one mutexing the other.
+  - Added a "Scale by live mic level" checkbox to the Equalizer: with it
+    on and Mic also running, every slider is multiplied by the Mic
+    button's captured level each tick, turning the Equalizer into a
+    live per-band shape editor for the real captured sound (0 whenever
+    Mic isn't running) instead of only a static test pattern -- lets
+    real speech reshape across bands while watching exactly what's
+    being sent, instead of guessing why nothing moved.
+  - Added a live "Captured: <rms> RMS (<dB> dBFS raw, before gain)"
+    readout next to the Mic row, so a quiet result can be told apart
+    from "no signal reaching here at all" without needing a debugger.
+  Regression tests: updated `MicSendLoopInjectsScaledEnergyTests` for
+  `_injection_loop`/`_injection_job_id`; new `EqualizerTests` cases
+  `test_scale_by_mic_uses_zero_when_mic_off`,
+  `test_scale_by_mic_multiplies_slider_by_captured_level`,
+  `test_mic_and_equalizer_can_run_together`.
+- Fix the Equalizer resetting every slider to 0 on reopen. A real user
+  set "All to max", closed the popup, and reopened it to find every
+  slider back at 0 -- `_open_equalizer()` always built fresh
+  `tk.IntVar(value=0)` widgets with no memory of what was there before,
+  even though releasing the console override on close (so the firmware
+  doesn't keep seeing stale test data) was always intentional. Added
+  `self.eq_band_values: list[int]`, a plain list that survives the
+  popup's own widgets being destroyed; each slider's `IntVar` now
+  traces its own writes back into it immediately, and `_open_equalizer`
+  seeds new sliders from it (resetting to zeros only if `fft_band_count`
+  changed, e.g. a different SD card was loaded in between). Separately
+  investigated and ruled out a second report ("only channels 2-9
+  respond even with All to max") as a real bug: a direct 32-band probe
+  on a real boot, injecting 50000 into every band via `MIC:<band>:
+  50000\n`, confirmed the override reaches all 30 valid bands this
+  session's `m_bandCount` actually has (indices 30-31 read 0, matching
+  the firmware's own out-of-range bound check, not ours) -- the
+  "channels 2-9" the user saw on the device's own calibration screen is
+  that screen's speech-level readout, which by firmware design (not
+  emulator behavior) only ever sums `speech_band_start`..`speech_band_end`
+  (2-8 on this card); the full spectrum bars on that same screen were
+  unaffected and would have shown every band. Regression tests:
+  `EqualizerTests::test_slider_positions_survive_close_and_reopen`,
+  `test_band_count_change_resets_stale_positions`.

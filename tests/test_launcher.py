@@ -706,10 +706,11 @@ class RmsToLevelMappingTests(unittest.TestCase):
 
 
 class MicSendLoopInjectsScaledEnergyTests(unittest.TestCase):
-    """Each tick must inject the SAME per-band value for every band in the
-    card's configured speech_band_start..speech_band_end range (the
-    firmware only ever sums whatever getBandValueFft() returns across
-    that range, per lualib/fft.lua's getSpeechLevel), computed as
+    """Each tick must inject the SAME per-band value, one "MIC:<band>:<n>"
+    line per band, for every band in the card's configured
+    speech_band_start..speech_band_end range (the firmware only ever
+    sums whatever getBandValueFft() returns across that range, per
+    lualib/fft.lua's getSpeechLevel), each computed as
     level * fft_max_energy * MIC_HEADROOM spread evenly over the band
     count -- not the raw host RMS and not a single full-scale value."""
 
@@ -732,12 +733,12 @@ class MicSendLoopInjectsScaledEnergyTests(unittest.TestCase):
         app._mic_active = True
         app._mic_level = 1.0  # 0 dBFS -> full-scale level
         try:
-            app._mic_send_loop()
+            app._injection_loop()
         finally:
-            if app._mic_send_job_id is not None:
-                self.root.after_cancel(app._mic_send_job_id)
+            if app._injection_job_id is not None:
+                self.root.after_cancel(app._injection_job_id)
         expected = int(200000 * app.MIC_HEADROOM / 7)
-        self.assertEqual(app.handle.sent, [f"MIC:{expected}\n"])
+        self.assertEqual(app.handle.sent, [f"MIC:{band}:{expected}\n" for band in range(2, 9)])
 
     def test_no_session_does_not_crash_and_sends_nothing(self):
         app = launcher.LauncherApp(self.root)
@@ -745,10 +746,10 @@ class MicSendLoopInjectsScaledEnergyTests(unittest.TestCase):
         app._mic_active = True
         app._mic_level = 1.0
         try:
-            app._mic_send_loop()
+            app._injection_loop()
         finally:
-            if app._mic_send_job_id is not None:
-                self.root.after_cancel(app._mic_send_job_id)
+            if app._injection_job_id is not None:
+                self.root.after_cancel(app._injection_job_id)
         # no exception, nothing to assert on -- there was no handle to send to
 
 
@@ -867,6 +868,185 @@ class MicButtonExplainsWhyItCannotStartTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertIn("sounddevice", calls[0][1])
         self.assertFalse(app._mic_active)
+
+
+class EqualizerTests(unittest.TestCase):
+    """The equalizer popup drives each FFT band independently -- a
+    single uniform level made every band rise together, which doesn't
+    let the user find whatever band shape the firmware actually needs
+    to cross its activation threshold. Shares one injection loop with
+    the Mic button (not a separate timer) so the two can run together:
+    the Equalizer's "scale by live mic level" option needs both at
+    once, and racing two independent timers against the same bands
+    would otherwise flicker between whichever fired last."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def _app_with_fft(self, directory, band_count=8):
+        path = Path(directory) / "misc.json"
+        path.write_text(json.dumps({"fft": {
+            "enabled": True, "speech_band_start": 2, "speech_band_end": 4,
+            "speech_min_energy": 50000, "speech_max_energy": 200000,
+            "speech_frist_frame_threshold": 40000, "band_count": band_count,
+        }}), encoding="utf-8")
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app.set_hostdir(directory)
+        app.handle = FakeSerialHandle()
+        return app
+
+    def _open_and_disarm(self, app):
+        """Opens the popup and cancels its live-send timer so a test can
+        drive it manually instead of racing a background after() tick."""
+        app._open_equalizer()
+        if app._injection_job_id is not None:
+            self.root.after_cancel(app._injection_job_id)
+            app._injection_job_id = None
+
+    def test_one_slider_per_band(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = self._app_with_fft(directory, band_count=8)
+        self._open_and_disarm(app)
+        try:
+            self.assertEqual(len(app.eq_band_vars), 8)
+        finally:
+            app._close_equalizer()
+
+    def test_speech_range_only_boosts_configured_bands(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = self._app_with_fft(directory, band_count=8)
+        self._open_and_disarm(app)
+        try:
+            app._eq_set_speech_range()
+            top = app._eq_slider_max()
+            values = [var.get() for var in app.eq_band_vars]
+            self.assertEqual(values, [0, 0, top, top, top, 0, 0, 0])
+        finally:
+            app._close_equalizer()
+
+    def test_injection_loop_applies_boost_per_band(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = self._app_with_fft(directory, band_count=8)
+        self._open_and_disarm(app)
+        try:
+            app.eq_band_vars[3].set(1000)
+            app.eq_boost_var.set(2.0)
+            app.handle.sent.clear()
+            app._injection_loop()
+            if app._injection_job_id is not None:
+                self.root.after_cancel(app._injection_job_id)
+                app._injection_job_id = None
+            self.assertIn("MIC:3:2000\n", app.handle.sent)
+        finally:
+            app._close_equalizer()
+
+    def test_close_releases_every_band(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = self._app_with_fft(directory, band_count=8)
+        self._open_and_disarm(app)
+        app.handle.sent.clear()
+        app._close_equalizer()
+        self.assertEqual(app.handle.sent, [f"MIC:{band}:-1\n" for band in range(8)])
+        self.assertIsNone(app.eq_window)
+
+    def test_scale_by_mic_uses_zero_when_mic_off(self):
+        """Without Mic running, "scale by live mic level" must send 0 for
+        every band -- not the slider's raw value (that would silently
+        act as if the checkbox were off) and not crash on no capture
+        state existing yet."""
+        with tempfile.TemporaryDirectory() as directory:
+            app = self._app_with_fft(directory, band_count=8)
+        self._open_and_disarm(app)
+        try:
+            app.eq_band_vars[3].set(1000)
+            app.eq_use_mic_var.set(True)
+            app.handle.sent.clear()
+            app._injection_loop()
+            if app._injection_job_id is not None:
+                self.root.after_cancel(app._injection_job_id)
+                app._injection_job_id = None
+            self.assertIn("MIC:3:0\n", app.handle.sent)
+        finally:
+            app._close_equalizer()
+
+    def test_scale_by_mic_multiplies_slider_by_captured_level(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = self._app_with_fft(directory, band_count=8)
+        self._open_and_disarm(app)
+        try:
+            app.eq_band_vars[3].set(1000)
+            app.eq_use_mic_var.set(True)
+            app._mic_active = True
+            app._mic_level = 1.0  # 0 dBFS -> full-scale level == 1.0
+            app.handle.sent.clear()
+            app._injection_loop()
+            if app._injection_job_id is not None:
+                self.root.after_cancel(app._injection_job_id)
+                app._injection_job_id = None
+            self.assertIn("MIC:3:1000\n", app.handle.sent)
+        finally:
+            app._mic_active = False
+            app._close_equalizer()
+
+    def test_mic_and_equalizer_can_run_together(self):
+        """Opening the Equalizer must no longer stop a running Mic
+        capture (the old mutex forced picking one or the other)."""
+        with tempfile.TemporaryDirectory() as directory:
+            app = self._app_with_fft(directory, band_count=8)
+        app._mic_active = True
+        self._open_and_disarm(app)
+        try:
+            self.assertTrue(app._mic_active)
+        finally:
+            app._mic_active = False
+            app._close_equalizer()
+
+    def test_slider_positions_survive_close_and_reopen(self):
+        """Closing the popup must release the console override (the
+        firmware shouldn't keep seeing stale test data after the user
+        closes the tool) but must NOT reset the slider positions
+        themselves -- losing a carefully-tuned test pattern on every
+        close made the tool unusable for iterating on one."""
+        with tempfile.TemporaryDirectory() as directory:
+            app = self._app_with_fft(directory, band_count=8)
+        self._open_and_disarm(app)
+        app.eq_band_vars[3].set(12345)
+        app.eq_band_vars[5].set(6789)
+        app._close_equalizer()
+        self.assertIsNone(app.eq_window)
+
+        self._open_and_disarm(app)
+        try:
+            self.assertEqual(app.eq_band_vars[3].get(), 12345)
+            self.assertEqual(app.eq_band_vars[5].get(), 6789)
+        finally:
+            app._close_equalizer()
+
+    def test_band_count_change_resets_stale_positions(self):
+        """A stored position list from a previous (differently-sized)
+        SD card's band_count must not be reused at the wrong indices
+        after switching cards -- it should reset cleanly instead."""
+        with tempfile.TemporaryDirectory() as directory:
+            app = self._app_with_fft(directory, band_count=8)
+        self._open_and_disarm(app)
+        app.eq_band_vars[3].set(12345)
+        app._close_equalizer()
+
+        app.fft_band_count = 16  # simulate switching to a different SD card
+        self._open_and_disarm(app)
+        try:
+            self.assertEqual(len(app.eq_band_vars), 16)
+            self.assertEqual([v.get() for v in app.eq_band_vars], [0] * 16)
+        finally:
+            app._close_equalizer()
 
 
 if __name__ == "__main__":
