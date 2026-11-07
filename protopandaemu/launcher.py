@@ -595,8 +595,7 @@ class LauncherApp:
         lower.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         lower.columnconfigure(0, weight=1)
         lower.rowconfigure(4, weight=1)
-        ttk.Label(lower, text="LED strip (buffer capture, not a verified hardware trace)",
-                 foreground=DARK_FG_MUTED).grid(row=0, column=0, sticky="w")
+        ttk.Label(lower, text="LED strip", foreground=DARK_FG_MUTED).grid(row=0, column=0, sticky="w")
         self.led_canvas = tk.Canvas(lower, height=28, bg=DARK_CANVAS_BG,
                                     highlightthickness=1, highlightbackground=DARK_BORDER)
         self.led_canvas.grid(row=1, column=0, sticky="ew", pady=(2, 8))
@@ -1099,20 +1098,13 @@ class LauncherApp:
             return
 
         win = tk.Toplevel(self.root)
-        win.title("FFT equalizer (manual per-band override)")
+        win.title("FFT Equalizer")
         win.configure(bg=DARK_BG)
         win.protocol("WM_DELETE_WINDOW", self._close_equalizer)
         self.eq_window = win
 
-        ttk.Label(win, text=(
-            "Drives each FFT band directly -- a single uniform level (what the Mic\n"
-            "button alone sends) makes every band rise together, which may not be\n"
-            "what the firmware's speech detection needs; use these to try any shape\n"
-            "and push well past the configured max if you want."),
-            foreground=DARK_FG_MUTED, justify="left").pack(anchor="w", padx=10, pady=(10, 4))
-
         controls = ttk.Frame(win)
-        controls.pack(anchor="w", padx=10, pady=(0, 6))
+        controls.pack(anchor="w", padx=10, pady=(10, 6))
         ttk.Label(controls, text="Boost:", foreground=DARK_FG_MUTED).pack(side="left")
         ttk.Spinbox(controls, from_=0.1, to=10.0, increment=0.1, width=5,
                    textvariable=self.eq_boost_var).pack(side="left", padx=(4, 12))
@@ -1123,12 +1115,6 @@ class LauncherApp:
         ttk.Button(controls, text="Clear all", command=lambda: self._eq_set_all(0)).pack(side="left", padx=4)
         ttk.Button(controls, text="Speech range only",
                   command=self._eq_set_speech_range).pack(side="left", padx=4)
-        ttk.Label(win, text=(
-            "\"Scale by live mic level\" multiplies every slider by the Mic button's "
-            "captured level each tick (0 if Mic isn't running) -- turn on Mic too to "
-            "use the sliders as a per-band shape for the real captured sound instead "
-            "of a static test pattern."), foreground=DARK_FG_MUTED, justify="left",
-            wraplength=900).pack(anchor="w", padx=10, pady=(0, 6))
 
         sliders = ttk.Frame(win)
         sliders.pack(padx=10, pady=4)
@@ -1139,11 +1125,7 @@ class LauncherApp:
         for band in range(self.fft_band_count):
             in_speech_range = self.fft_band_start <= band <= self.fft_band_end
             var = tk.IntVar(value=self.eq_band_values[band])
-            # Persist every change immediately (not just on Close) --
-            # restoring 0 here on each reopen was the bug: a slider you
-            # dragged, closed the popup, and reopened showed 0 again,
-            # even though nothing on the console side had reset.
-            var.trace_add("write", lambda *_a, b=band, v=var: self.eq_band_values.__setitem__(b, v.get()))
+            var.trace_add("write", lambda *_a, b=band, v=var: self.eq_band_values.__setitem__(b, v.get()))  # persist across reopen
             self.eq_band_vars.append(var)
             column = ttk.Frame(sliders)
             column.grid(row=0, column=band, padx=1)
@@ -1156,10 +1138,8 @@ class LauncherApp:
             ttk.Label(column, text=str(band),
                      foreground=DARK_ACCENT if in_speech_range else DARK_FG_MUTED).pack()
 
-        ttk.Label(win, text=(
-            f"Bands {self.fft_band_start}-{self.fft_band_end} (highlighted) are what this "
-            "SD card's speech detection actually sums; the rest are shown for completeness "
-            "but ignored by it."), foreground=DARK_FG_MUTED).pack(anchor="w", padx=10, pady=(4, 6))
+        ttk.Label(win, text=f"Speech range: {self.fft_band_start}-{self.fft_band_end}",
+                 foreground=DARK_FG_MUTED).pack(anchor="w", padx=10, pady=(4, 6))
         ttk.Button(win, text="Close", command=self._close_equalizer).pack(pady=(0, 10))
 
         self._ensure_injection_loop()
