@@ -19,11 +19,20 @@ O Protopanda Emulator está sendo construído para testar animações, conferir 
 
 ## Estado atual
 
-**O launcher desktop mínimo do M5 está implementado. A race de VFS/FatFs
-que bloqueava conteúdo real do HUB75 foi identificada e corrigida no
-nível do modelo QEMU; o comparador formal de quadro-padrão por metade
-(`prove-m4.py`) nunca foi construído, então o gate de aceitação do próprio
-Rock 3/M4 segue aberto.**
+**O fluxo "rode seu próprio fork de firmware e cartão SD como estão"
+(veja abaixo) é o caminho principal suportado e está sólido no dia a
+dia:** bugs reais do modelo QEMU (travamento de log do I2C, um bug de
+decodificador HUB75 que duplicava quadrantes, uma race de SDMMC que
+bloqueava todo conteúdo real) estão corrigidos; o launcher desktop é uma
+GUI traduzida com tema escuro, prévia em três painéis fiel ao
+dispositivo, seletor de firmware, controlador IR virtual e um toggle do
+sensor de proximidade (boop). O trilho separado, guiado por
+especificação, de marcos M2-M5 (Proto-panda v3.4.0 fixado,
+`prove-m2.py`/`prove-m3.py`/`prove-m4-oled.py`) também funciona de ponta
+a ponta, mas um comparador formal de quadro-padrão com seis permutações
+para o próprio gate de aceitação Rock 3/M4 desse trilho nunca foi
+construído — isso não bloqueia o fluxo como-está, que usa o mesmo
+decodificador HUB75 já verificado.
 
 | Componente | Estado |
 | --- | --- |
@@ -32,8 +41,23 @@ Rock 3/M4 segue aberto.**
 | Persistência | Flash e SD privado preservados entre parada limpa e reinício. |
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
-| HUB75 | Decodificador corrigido e verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais). A race de VFS que parava o Lua antes de qualquer renderização (`backend/qemu/patches/0008-esp32s3-dwc-sdmmc-register-state.patch`) está corrigida; conteúdo animado real já é capturado (`artifacts/mvp/hub75-real-content-proof/`). O comparador formal de quadro-padrão com seis permutações (`prove-m4.py`, PLAN.md Rock 3) nunca foi implementado. |
-| Launcher desktop | Launcher Tkinter com controles independentes de fiação esquerda/direita, sessões reais via hostdir, prévias do backend, diagnósticos ao vivo e botões de controle virtual por infravermelho. Detecta automaticamente um build de firmware emu do próprio usuário quando presente (sem variáveis de ambiente). |
+| HUB75 | Decodificador verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); um bug de descritor sentinela que duplicava quadros densos em quadrantes espelhados está corrigido. Conteúdo animado real é capturado de ponta a ponta (`artifacts/mvp/hub75-real-content-proof/`). |
+| Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual e um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`. |
+
+**Lacunas conhecidas** (hardware não emulado ou não verificado, não bugs de backend):
+
+- **A saída da fita de LED / WS2812 é stubada** no build como-está —
+  sempre apagada, sem prévia. Configurações ou animações que dependem de
+  feedback visual de LED não aparecem no emulador.
+- **A entrada de microfone/FFT (ADC contínuo) não foi verificada** — se
+  o modelo de ADC do QEMU produz amostras úteis ou só ruído/estático não
+  foi testado. Comportamento reativo a voz não dá pra validar aqui ainda.
+- **A saída de servo não tem feedback visual.** O firmware escreve um
+  duty cycle de PWM real; o launcher não tem como mostrar o ângulo
+  resultante.
+- **O modo de entrada BLE não é suportado** (sem modelo de rádio
+  NimBLE/Bluedroid); só `input.mode: "infrared"` inicializa de forma
+  confiável neste backend.
 
 A execução usa um fork experimental do [QEMU da Espressif](https://github.com/espressif/qemu), com patches em [`backend/qemu/`](backend/qemu/). Os testes dos backends originais ainda encontram bloqueios de boot. Resultados do fork modificado não significam suporte no QEMU original.
 
@@ -120,16 +144,20 @@ quantidade de assets) antes de seguir o progresso normal do boot via
 um arquivo de bulk parcial para o próximo boot. A composição só acontece
 uma vez por arquivo de estado de flash.
 
-A prévia lê as últimas linhas `GDDRAM_DUMP` e `FRAME_DUMP` do log de
-stderr do relatório da sessão. **Este backend não tem modelo de rádio
-BLE**: um cartão SD real com `keybinds.json` em `input.mode: "BLE"` entra
-direto em loop de crash/reinício contra o firmware fixado padrão
-(confirmado; ver `ISSUES.md`) — o launcher avisa antes de iniciar se
-detectar isso, e a solução é trocar o `input.mode` desse arquivo para
-`"infrared"` com um `infrared_gpio` numérico. Um ambiente desktop local é
-necessário. Em um ambiente Linux sem interface gráfica, com o Xvfb já
-extraído no repositório, suba um display X real primeiro e rode o mesmo
-comando com `DISPLAY` definido:
+A prévia decodifica as últimas linhas `GDDRAM_DUMP` e `FRAME_DUMP` do log
+de stderr do relatório da sessão em um layout de três painéis fiel ao
+dispositivo físico: OLED centralizado acima do par esquerdo/direito de
+HUB75, cada um no aspecto nativo exato. O redimensionamento da janela é
+travado na proporção do próprio launcher, então arrastar um canto escala
+todos os painéis proporcionalmente em vez de distorcer um eixo só.
+**Este backend não tem modelo de rádio BLE**: um cartão SD real com
+`keybinds.json` em `input.mode: "BLE"` entra direto em loop de
+crash/reinício contra o firmware fixado padrão (confirmado) — o launcher
+avisa antes de iniciar se detectar isso, e a solução é trocar o
+`input.mode` desse arquivo para `"infrared"` com um `infrared_gpio`
+numérico. Um ambiente desktop local é necessário. Em um ambiente Linux
+sem interface gráfica, com o Xvfb já extraído no repositório, suba um
+display X real primeiro e rode o mesmo comando com `DISPLAY` definido:
 
 ```bash
 .work/mvp-display/root/usr/bin/Xvfb :99 -screen 0 1400x1000x24 -nolisten tcp &
@@ -154,10 +182,12 @@ consegue suportar de outra forma: o pino compartilhado de IR/SDMMC usa
 SD, `BleManager::begin()` roda sem rádio para que chamadas de
 `onEnable()` de drivers que exigem BLE passem sob `input.mode:
 "infrared"`, um comando de console (`IR:<addr>:<cmd>\n` via UART) injeta
-pressionamentos de IR virtuais, e a saída da fita de LED é stubada (o
-HUB75 não é afetado). Nenhuma configuração de firmware, pino ou dado do SD
-é editado para isso funcionar — o perfil da placa e as atribuições de
-GPIO continuam reais.
+pressionamentos de IR virtuais, um segundo comando de console
+(`GPIO:<pin>:<0|1>\n`) sobrepõe o valor de leitura de qualquer pino de
+entrada digital (usado pelo toggle do sensor de proximidade boop
+abaixo), e a saída da fita de LED é stubada (o HUB75 não é afetado).
+Nenhuma configuração de firmware, pino ou dado do SD é editado para isso
+funcionar — o perfil da placa e as atribuições de GPIO continuam reais.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/caminho/para/seu/fork \
@@ -167,8 +197,14 @@ python3 -m protopandaemu.launcher --hostdir /caminho/para/seus/dados-protopanda
 
 O launcher detecta automaticamente
 `artifacts/build-emu/release/merged_flash.bin` quando presente — sem
-variáveis de ambiente. O painel "Controles virtuais" envia comandos de IR
-reais do seu `keybinds.json` pelo UART da sessão enquanto ela roda.
+variáveis de ambiente; uma escolha explícita no botão "Choose
+firmware..." sempre sobrepõe a detecção automática. O painel "Simulated
+IR controls" envia comandos de IR reais do seu `keybinds.json` pelo UART
+da sessão enquanto ela roda. Para cartões SD com `misc.json`'s
+`boop.trigger_mode: "gpio"`, um toggle "Boop" ao lado sobrepõe o valor
+desse pino da mesma forma (roxo quando próximo, cinza quando longe); não
+tem efeito em configs de boop no modo lidar, que não têm pino digital
+pra sobrepor.
 
 ### Verifique a saída do OLED
 
@@ -176,7 +212,7 @@ reais do seu `keybinds.json` pelo UART da sessão enquanto ela roda.
 python3 scripts/prove-m4-oled.py
 ```
 
-Isso inicia o firmware com sua configuração real de display, captura o tráfego real de comandos e pixels I2C do SSD1306, e confere o quadro do ícone de abertura byte a byte contra um oráculo que este script deriva de forma independente a partir do próprio bitmap do ícone compilado no firmware. A transmissão do HUB75 ainda não está implementada neste check, então ele encerra a sessão logo após o trabalho do OLED terminar, sem esperar o resto do boot.
+Isso inicia o firmware com sua configuração real de display, captura o tráfego real de comandos e pixels I2C do SSD1306, e confere o quadro do ícone de abertura byte a byte contra um oráculo que este script deriva de forma independente a partir do próprio bitmap do ícone compilado no firmware. Ele encerra a sessão logo após o trabalho do OLED terminar, por design, sem esperar o resto do boot.
 
 ## Compilação e inspeção
 
@@ -198,11 +234,20 @@ bash scripts/spike.sh --backend=qemu --mode=hub75-probe
 
 Um teste pode registrar um bloqueio ou `NOT_EXECUTED`; nenhum desses resultados indica que o firmware passou. Imagens de disco, ferramentas baixadas e arquivos temporários ficam nas pastas ignoradas `.work/` e `.rf/`.
 
-## Próximas etapas
+## Próximos passos
 
-1. Construir o comparador formal de quadro-padrão por metade do Rock
-   3/M4 (`prove-m4.py`, PLAN.md) — a race de VFS que o bloqueava está
-   corrigida, mas essa prova em si nunca foi implementada (`ISSUES.md`).
-2. Marcos de modo de edição BLE/Wi-Fi, web e endurecimento de release (fora deste ciclo, ver `docs/protopandaemu-full-spec.md`).
+1. A saída da fita de LED/WS2812 não tem prévia visual no launcher
+   (fica stubada/apagada no build como-está). Capturar e renderizar
+   esse estado do mesmo jeito que HUB75/OLED já funcionam fecharia a
+   maior lacuna visível pra configs que usam feedback de LED.
+2. A entrada de microfone/FFT (ADC contínuo) não foi verificada contra
+   o modelo de ADC deste backend — não se sabe se produz algo útil pra
+   comportamento reativo a voz.
+3. Um comparador formal de quadro-padrão com seis permutações pro
+   próprio check de aceitação HUB75 do trilho v3.4.0 fixado nunca foi
+   construído; não é necessário pro fluxo como-está, que já captura e
+   verifica conteúdo animado real de ponta a ponta.
+4. Entrada BLE e ferramentas web/modo-edição seguem fora de escopo —
+   não existe modelo de rádio pra este backend.
 
 Consulte o [`CHANGELOG.md`](CHANGELOG.md) para ver as alterações implementadas.
