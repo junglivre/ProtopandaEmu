@@ -202,8 +202,11 @@
   backend/qemu) intentionally doesn't decode WS2812 signal timing (out
   of scope there), so there is no real wire-level traffic to capture the
   way HUB75/OLED's dumps do; this is a firmware-buffer capture instead,
-  noted as such in the GUI. Regression tests:
-  `tests/test_launcher.py::ReadLatestLedDumpTests`,
+  noted as such in the GUI. Off by default (gated behind
+  `PROTOPANDAEMU_EMU_LED_DUMP`, not set by `build-firmware-emu.sh`):
+  even throttled, a long animated session adds up to meaningful UART
+  log volume, so the preview is opt-in rather than always-on. Regression
+  tests: `tests/test_launcher.py::ReadLatestLedDumpTests`,
   `DrawLedStripRendersEachColorTests`. Verified against a real boot on
   the user's own SD card: a rotating two-segment behavior streamed live,
   distinct colors per dump, matching the boot log's own LED setup.

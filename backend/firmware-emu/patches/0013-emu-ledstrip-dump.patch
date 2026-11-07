@@ -1,5 +1,5 @@
 diff --git a/src/drawing/ledstrip.cpp b/src/drawing/ledstrip.cpp
-index a110eae..e1af8d5 100644
+index a110eae..6b3fa22 100644
 --- a/src/drawing/ledstrip.cpp
 +++ b/src/drawing/ledstrip.cpp
 @@ -3,6 +3,7 @@
@@ -10,22 +10,25 @@ index a110eae..e1af8d5 100644
  
  CRGB* LedStrip::BeginScreen(uint16_t w, uint16_t h, uint8_t maxbrightness){
      m_screen = new CRGB[w*h];
-@@ -264,8 +265,36 @@ void LedStrip::Display(){
+@@ -264,8 +265,40 @@ void LedStrip::Display(){
      }
  #ifdef PROTOPANDAEMU_EMU
      /* The emulator models the HUB75 panel but has no WS2812 wire to light;
 -     * every FastLED.show() path is stubbed out below (the RMT encode loop
 -     * would otherwise stall the frame loop). */
 +     * the real FastLED.show() path stays stubbed out below (same as
-+     * before). Before returning, dump the real computed m_leds buffer --
-+     * exactly the colors the real strip would have displayed -- so the
-+     * launcher can render an LED preview. This is a firmware-buffer
-+     * capture, not a verified hardware-traffic trace like the HUB75/OLED
-+     * dumps: QEMU's RMT model intentionally doesn't decode WS2812 signal
-+     * timing (out of scope there), so there is no real wire-level signal
-+     * to capture instead. Throttled and change-gated like the real
-+     * backend's own HUB75 dump cadence, so an animated strip can't flood
-+     * the console the way the old I2C FIFO-poll bug once did. */
++     * before). PROTOPANDAEMU_EMU_LED_DUMP (off by default, not set by
++     * build-firmware-emu.sh) additionally dumps the real computed
++     * m_leds buffer -- exactly the colors the real strip would have
++     * displayed -- so the launcher can render an LED preview. This is a
++     * firmware-buffer capture, not a verified hardware-traffic trace
++     * like the HUB75/OLED dumps: QEMU's RMT model intentionally doesn't
++     * decode WS2812 signal timing (out of scope there), so there is no
++     * real wire-level signal to capture instead. Off by default: even
++     * throttled and change-gated, a long animated session adds up to a
++     * meaningful amount of UART log volume, and the preview is opt-in
++     * convenience, not a default-on diagnostic. */
++#ifdef PROTOPANDAEMU_EMU_LED_DUMP
 +    if (m_ledAmount > 0 && m_leds != nullptr){
 +        static uint32_t lastDumpMs = 0;
 +        static CRGB lastDumped[256];
@@ -46,6 +49,7 @@ index a110eae..e1af8d5 100644
 +            lastDumpMs = now;
 +        }
 +    }
++#endif
      return;
  #endif
      if (m_ledAmount > 0 && !m_hasScreen){

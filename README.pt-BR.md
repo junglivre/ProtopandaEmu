@@ -42,7 +42,7 @@ decodificador HUB75 já verificado.
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
 | HUB75 | Decodificador verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); um bug de descritor sentinela que duplicava quadros densos em quadrantes espelhados está corrigido. Conteúdo animado real é capturado de ponta a ponta (`artifacts/mvp/hub75-real-content-proof/`). |
-| Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual, um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`, e uma prévia ao vivo da fita de LED (captura de buffer do firmware, veja abaixo). |
+| Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual, um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`, e uma prévia ao vivo opcional da fita de LED (captura de buffer do firmware, veja abaixo). |
 
 **Lacunas conhecidas** (hardware não emulado ou não verificado, não bugs de backend):
 
@@ -193,11 +193,17 @@ pressionamentos de IR virtuais, um segundo comando de console
 entrada digital (usado pelo toggle do sensor de proximidade boop
 abaixo), a gravação real de WS2812 via `FastLED.show()` continua
 stubada (o modelo de RMT do QEMU completa a transação mas não decodifica
-o timing do sinal, então não há fio pra acender), mas o buffer de cor
-real que `LedStrip::Display()` calcula é despejado no console em vez
-disso, pra prévia de LED ao vivo abaixo. Nenhuma configuração de
-firmware, pino ou dado do SD é editado para isso funcionar — o perfil
-da placa e as atribuições de GPIO continuam reais.
+o timing do sinal, então não há fio pra acender). Uma flag de build
+opcional (`PROTOPANDAEMU_EMU_LED_DUMP`, desligada por padrão — mesmo
+limitada, uma sessão animada longa acumula volume relevante de log no
+UART) despeja adicionalmente o buffer de cor real que
+`LedStrip::Display()` calcula no console, pra prévia de LED ao vivo
+abaixo; defina
+`PLATFORMIO_BUILD_FLAGS="-DPROTOPANDAEMU_EMU_LED_DUMP"` antes de rodar
+`build-firmware-emu.sh` pra ligar, sem editar nenhum arquivo da árvore
+de origem. Nenhuma configuração de firmware, pino ou dado do SD é
+editado para fazer nada disso funcionar — o perfil da placa e as
+atribuições de GPIO continuam reais.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/caminho/para/seu/fork \
@@ -214,10 +220,12 @@ da sessão enquanto ela roda. Para cartões SD com `misc.json`'s
 `boop.trigger_mode: "gpio"`, um toggle "Boop" ao lado sobrepõe o valor
 desse pino da mesma forma (roxo quando próximo, cinza quando longe); não
 tem efeito em configs de boop no modo lidar, que não têm pino digital
-pra sobrepor. Abaixo da prévia HUB75/OLED, uma linha de fita de LED ao
-vivo renderiza as cores reais que `LedStrip::Display()` calculou (não é
-um traço de tráfego de hardware verificado como HUB75/OLED, veja Estado
-atual acima) para cartões SD que acionam saída WS2812.
+pra sobrepor. Abaixo da prévia HUB75/OLED, uma linha de fita de LED
+renderiza as cores reais que `LedStrip::Display()` calculou (não é um
+traço de tráfego de hardware verificado como HUB75/OLED, veja Estado
+atual acima) para cartões SD que acionam saída WS2812 — fica vazia a
+menos que o firmware tenha sido compilado com
+`PROTOPANDAEMU_EMU_LED_DUMP` (veja acima).
 
 ### Verifique a saída do OLED
 
