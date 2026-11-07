@@ -42,13 +42,10 @@ decodificador HUB75 já verificado.
 | Armazenamento a partir de pasta | A pasta escolhida vira o cartão SD do firmware: preparação segura, gravação recuperável a falhas, backups e retenção de conflitos. |
 | OLED | Protocolo I2C real do SSD1306, GDDRAM real de 128x64; byte a byte idêntico a um oráculo derivado de forma independente. |
 | HUB75 | Decodificador verificado contra tráfego GDMA real (transmissão contínua, descritores multi-plano reais); um bug de descritor sentinela que duplicava quadros densos em quadrantes espelhados está corrigido. Conteúdo animado real é capturado de ponta a ponta (`artifacts/mvp/hub75-real-content-proof/`). |
-| Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual e um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`. |
+| Launcher desktop | GUI Tkinter traduzida, com tema escuro: prévia em três painéis (OLED + ambas as metades do HUB75) no aspecto nativo, redimensionamento travado em proporção, controles independentes de fiação esquerda/direita, seletor de firmware (escolha explícita sobrepõe a detecção automática), sessões reais via hostdir, diagnósticos ao vivo, controlador IR virtual, um toggle do sensor de proximidade (boop) para cartões SD com `trigger_mode: "gpio"`, e uma prévia ao vivo da fita de LED (captura de buffer do firmware, veja abaixo). |
 
 **Lacunas conhecidas** (hardware não emulado ou não verificado, não bugs de backend):
 
-- **A saída da fita de LED / WS2812 é stubada** no build como-está —
-  sempre apagada, sem prévia. Configurações ou animações que dependem de
-  feedback visual de LED não aparecem no emulador.
 - **A entrada de microfone/FFT (ADC contínuo) não foi verificada** — se
   o modelo de ADC do QEMU produz amostras úteis ou só ruído/estático não
   foi testado. Comportamento reativo a voz não dá pra validar aqui ainda.
@@ -181,13 +178,16 @@ consegue suportar de outra forma: o pino compartilhado de IR/SDMMC usa
 `gpio_config()` em vez de `pinMode()` para não desconectar o barramento
 SD, `BleManager::begin()` roda sem rádio para que chamadas de
 `onEnable()` de drivers que exigem BLE passem sob `input.mode:
-"infrared"`, um comando de console (`IR:<addr>:<cmd>\n` via UART) injeta
 pressionamentos de IR virtuais, um segundo comando de console
 (`GPIO:<pin>:<0|1>\n`) sobrepõe o valor de leitura de qualquer pino de
 entrada digital (usado pelo toggle do sensor de proximidade boop
-abaixo), e a saída da fita de LED é stubada (o HUB75 não é afetado).
-Nenhuma configuração de firmware, pino ou dado do SD é editado para isso
-funcionar — o perfil da placa e as atribuições de GPIO continuam reais.
+abaixo), a gravação real de WS2812 via `FastLED.show()` continua
+stubada (o modelo de RMT do QEMU completa a transação mas não decodifica
+o timing do sinal, então não há fio pra acender), mas o buffer de cor
+real que `LedStrip::Display()` calcula é despejado no console em vez
+disso, pra prévia de LED ao vivo abaixo. Nenhuma configuração de
+firmware, pino ou dado do SD é editado para isso funcionar — o perfil
+da placa e as atribuições de GPIO continuam reais.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/caminho/para/seu/fork \
@@ -204,7 +204,10 @@ da sessão enquanto ela roda. Para cartões SD com `misc.json`'s
 `boop.trigger_mode: "gpio"`, um toggle "Boop" ao lado sobrepõe o valor
 desse pino da mesma forma (roxo quando próximo, cinza quando longe); não
 tem efeito em configs de boop no modo lidar, que não têm pino digital
-pra sobrepor.
+pra sobrepor. Abaixo da prévia HUB75/OLED, uma linha de fita de LED ao
+vivo renderiza as cores reais que `LedStrip::Display()` calculou (não é
+um traço de tráfego de hardware verificado como HUB75/OLED, veja Estado
+atual acima) para cartões SD que acionam saída WS2812.
 
 ### Verifique a saída do OLED
 
@@ -236,18 +239,14 @@ Um teste pode registrar um bloqueio ou `NOT_EXECUTED`; nenhum desses resultados 
 
 ## Próximos passos
 
-1. A saída da fita de LED/WS2812 não tem prévia visual no launcher
-   (fica stubada/apagada no build como-está). Capturar e renderizar
-   esse estado do mesmo jeito que HUB75/OLED já funcionam fecharia a
-   maior lacuna visível pra configs que usam feedback de LED.
-2. A entrada de microfone/FFT (ADC contínuo) não foi verificada contra
+1. A entrada de microfone/FFT (ADC contínuo) não foi verificada contra
    o modelo de ADC deste backend — não se sabe se produz algo útil pra
    comportamento reativo a voz.
-3. Um comparador formal de quadro-padrão com seis permutações pro
+2. Um comparador formal de quadro-padrão com seis permutações pro
    próprio check de aceitação HUB75 do trilho v3.4.0 fixado nunca foi
    construído; não é necessário pro fluxo como-está, que já captura e
    verifica conteúdo animado real de ponta a ponta.
-4. Entrada BLE e ferramentas web/modo-edição seguem fora de escopo —
+3. Entrada BLE e ferramentas web/modo-edição seguem fora de escopo —
    não existe modelo de rádio pra este backend.
 
 Consulte o [`CHANGELOG.md`](CHANGELOG.md) para ver as alterações implementadas.

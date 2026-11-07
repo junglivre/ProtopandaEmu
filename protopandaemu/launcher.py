@@ -61,6 +61,12 @@ HUB75_RE = re.compile(
     r"width=(\d+)\s+height=(\d+)\s+rows_per_frame=(\d+)\s+bytes=(\d+)\s+"
     r"descriptors=(\d+)\s+hex=([0-9a-fA-F]+)"
 )
+# The LED strip dump comes from firmware-emu patch 0013, a buffer capture
+# (not a verified hardware-traffic trace like the two above): it reads
+# straight off the real console/UART, not QEMU's own device-model stderr.
+LED_RE = re.compile(
+    r"\[EMU\]\s+LED_DUMP\s+count=(\d+)\s+hex=([0-9a-fA-F]+)"
+)
 
 
 class LauncherError(RuntimeError):
@@ -179,6 +185,37 @@ def _read_latest_dumps(stderr_path: pathlib.Path) -> tuple[dict[str, Any] | None
     return oled, hub
 
 
+def _read_latest_led_dump(uart_path: pathlib.Path) -> dict[str, Any] | None:
+    """Decode the newest LED_DUMP line from the live UART log tail.
+
+    Unlike OLED/HUB75 (QEMU device-model stderr), this comes straight from
+    the guest console: firmware-emu patch 0013 captures LedStrip::Display()'s
+    real computed color buffer, since this backend's RMT model doesn't
+    decode WS2812 signal timing (see the patch and LED_RE for why).
+    """
+    try:
+        with uart_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - _DUMP_TAIL_BYTES))
+            tail = handle.read()
+    except OSError:
+        return None
+    text = tail.decode("utf-8", errors="replace")
+    for match in reversed(list(LED_RE.finditer(text))):
+        count_text, hex_data = match.groups()
+        count = int(count_text)
+        try:
+            data = bytes.fromhex(hex_data)
+        except ValueError:
+            # A tail read can land mid-dump; skip it and try the previous one.
+            continue
+        if len(data) != count * 3:
+            continue
+        return {"count": count, "data": data}
+    return None
+
+
 class LauncherApp:
     """The small, testable desktop dashboard."""
 
@@ -195,6 +232,8 @@ class LauncherApp:
         self._oled_photo: tk.PhotoImage | None = None
         self._hub75_left_photo: tk.PhotoImage | None = None
         self._hub75_right_photo: tk.PhotoImage | None = None
+        self._led_photo: tk.PhotoImage | None = None
+        self._last_led_dump: dict[str, Any] | None = None
         self.boop_gpio: int | None = None
         self.boop_near = False
         self._boop_default_sent = True  # no session yet, nothing pending
@@ -471,14 +510,20 @@ class LauncherApp:
         lower = ttk.Frame(preview)
         lower.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         lower.columnconfigure(0, weight=1)
-        lower.rowconfigure(1, weight=1)
+        lower.rowconfigure(2, weight=1)
+        ttk.Label(lower, text="LED strip (buffer capture, not a verified hardware trace)",
+                 foreground=DARK_FG_MUTED).grid(row=0, column=0, sticky="w")
+        self.led_canvas = tk.Canvas(lower, height=28, bg=DARK_CANVAS_BG,
+                                    highlightthickness=1, highlightbackground=DARK_BORDER)
+        self.led_canvas.grid(row=1, column=0, sticky="ew", pady=(2, 8))
+        self.led_canvas.bind("<Configure>", lambda _e: self._redraw_led_strip_from_cache())
         ttk.Label(lower, textvariable=self.uart_var, foreground=DARK_FG_MUTED).grid(
-            row=0, column=0, sticky="w")
+            row=2, column=0, sticky="w")
         self.uart_text = tk.Text(lower, height=9, width=149, state="disabled", wrap="none",
                                  bg=DARK_CANVAS_BG, fg=DARK_FG, insertbackground=DARK_FG,
                                  relief="solid", borderwidth=1, highlightthickness=1,
                                  highlightbackground=DARK_BORDER, padx=6, pady=4)
-        self.uart_text.grid(row=1, column=0, sticky="nsew")
+        self.uart_text.grid(row=3, column=0, sticky="nsew")
 
     def _lock_aspect_ratio(self) -> None:
         # "Diagonal-only" resize: lock the window's min and max interactive
@@ -774,7 +819,12 @@ class LauncherApp:
                                        f"({hub['bytes']} bytes, {hub['descriptors']} descriptors){note}")
             uart = report.get("uart_log_path")
             if uart:
-                self._set_uart_tail(pathlib.Path(uart))
+                uart_path = pathlib.Path(uart)
+                self._set_uart_tail(uart_path)
+                led = _read_latest_led_dump(uart_path)
+                if led:
+                    self._last_led_dump = led
+                    self._draw_led_strip(led)
             if report.get("exit_reason") and self.handle is not None:
                 self.start_button.configure(state="normal")
                 self.stop_button.configure(state="disabled")
@@ -853,6 +903,26 @@ class LauncherApp:
             self._hub75_right_photo = zoomed
         canvas.delete("all")
         canvas.create_image(0, 0, anchor="nw", image=zoomed)
+
+    def _redraw_led_strip_from_cache(self) -> None:
+        if self._last_led_dump is not None:
+            self._draw_led_strip(self._last_led_dump)
+
+    def _draw_led_strip(self, dump: dict[str, Any]) -> None:
+        canvas = self.led_canvas
+        count, data = dump["count"], dump["data"]
+        if count <= 0 or len(data) != count * 3:
+            return
+        row = " ".join(
+            f"#{data[i * 3]:02x}{data[i * 3 + 1]:02x}{data[i * 3 + 2]:02x}" for i in range(count))
+        photo = tk.PhotoImage(width=count, height=1)
+        photo.put(f"{{{row}}}")
+        canvas_width = max(1, canvas.winfo_width())
+        canvas_height = max(1, canvas.winfo_height())
+        scale_x = max(1, canvas_width // count)
+        self._led_photo = photo.zoom(scale_x, canvas_height)
+        canvas.delete("all")
+        canvas.create_image(0, 0, anchor="nw", image=self._led_photo)
 
     def close(self) -> None:
         if self._after_id is not None:

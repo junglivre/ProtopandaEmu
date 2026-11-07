@@ -40,13 +40,10 @@ relies on the same already-verified HUB75 decoder.
 | Folder-backed storage | A chosen folder becomes the firmware's SD card: safe staging, crash-recoverable commit, backups and conflict retention. |
 | OLED | Real SSD1306 I2C protocol, real 128x64 GDDRAM; byte-exact against an independently derived oracle. |
 | HUB75 | Decoder verified against real GDMA traffic (continuous streaming, real multi-plane descriptors); a sentinel-descriptor bug that duplicated dense frames into mirrored quadrants is fixed. Real animated content is captured end to end (`artifacts/mvp/hub75-real-content-proof/`). |
-| Desktop launcher | Translated, dark-theme Tkinter GUI: a three-panel preview (OLED + both HUB75 halves) at native aspect, aspect-locked resize, independent left/right wiring controls, a firmware picker (explicit choice overrides auto-detection), real hostdir sessions, live diagnostics, a virtual IR controller and a boop proximity-sensor toggle for SD cards using `trigger_mode: "gpio"`. |
+| Desktop launcher | Translated, dark-theme Tkinter GUI: a three-panel preview (OLED + both HUB75 halves) at native aspect, aspect-locked resize, independent left/right wiring controls, a firmware picker (explicit choice overrides auto-detection), real hostdir sessions, live diagnostics, a virtual IR controller, a boop proximity-sensor toggle for SD cards using `trigger_mode: "gpio"`, and a live LED strip preview (firmware-buffer capture, see below). |
 
 **Known gaps** (unemulated or unverified hardware, not backend bugs):
 
-- **LED strip / WS2812 output is stubbed** in the as-is build — always
-  off, no preview. Config or animations that rely on visible LED
-  feedback won't show anything in the emulator.
 - **Microphone/FFT input (continuous ADC) is unverified** — whether
   QEMU's ADC model produces meaningful samples or just static/noise has
   not been tested. Voice-reactive behavior can't be validated here yet.
@@ -180,10 +177,13 @@ runs with no radio so BLE-gated driver `onEnable()` calls pass under
 `input.mode: "infrared"`, a console command (`IR:<addr>:<cmd>\n` over
 UART) injects virtual IR button presses, a second console command
 (`GPIO:<pin>:<0|1>\n`) overrides any digital input pin's read value (used
-for the boop proximity-sensor toggle below), and LED strip output is
-stubbed (HUB75 is unaffected). No firmware config, pin assignment, or SD
-data is edited to make this work — board profile and GPIO assignments
-stay real.
+for the boop proximity-sensor toggle below), the real `FastLED.show()`
+WS2812 write stays stubbed out (QEMU's RMT model completes the
+transaction but doesn't decode signal timing, so there's no wire to
+light) but `LedStrip::Display()`'s real computed color buffer is dumped
+to the console instead, for the live LED preview below. No firmware
+config, pin assignment, or SD data is edited to make this work — board
+profile and GPIO assignments stay real.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/path/to/your/fork \
@@ -199,7 +199,11 @@ commands from your `keybinds.json` over the session's UART while it
 runs. For SD cards with `misc.json`'s `boop.trigger_mode: "gpio"`, a
 "Boop" toggle next to it overrides that pin's read value the same way
 (purple when near, grey when far); it has no effect on lidar-mode boop
-configs, which have no digital pin to override.
+configs, which have no digital pin to override. Below the HUB75/OLED
+preview, a live LED strip row renders the real colors
+`LedStrip::Display()` computed (not a hardware-traffic trace like
+HUB75/OLED, see Current status above) for SD cards that drive WS2812
+output.
 
 ### Verify the OLED output
 
@@ -231,18 +235,14 @@ A probe can report a blocker or `NOT_EXECUTED`; neither means the firmware passe
 
 ## Next steps
 
-1. LED strip / WS2812 output has no visual preview in the launcher (it's
-   stubbed off in the as-is build). Capturing and rendering that state
-   the same way HUB75/OLED already work would close the biggest visible
-   gap for configs that use LED feedback.
-2. Microphone/FFT input (continuous ADC) is unverified against this
+1. Microphone/FFT input (continuous ADC) is unverified against this
    backend's ADC model — unknown whether it yields anything usable for
    voice-reactive behavior.
-3. A formal, six-permutation golden-frame comparator for the pinned
+2. A formal, six-permutation golden-frame comparator for the pinned
    v3.4.0 track's own HUB75 acceptance check was never built; it isn't
    required for the as-is workflow, which already captures and verifies
    real animated content end to end.
-4. BLE input and web/edit-mode tooling remain out of scope — no radio
+3. BLE input and web/edit-mode tooling remain out of scope — no radio
    model exists for this backend.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for implemented changes.
