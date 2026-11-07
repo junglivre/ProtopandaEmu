@@ -1,0 +1,26 @@
+diff --git a/src/tools/fft.cpp b/src/tools/fft.cpp
+index 92469a4..5a2ad16 100644
+--- a/src/tools/fft.cpp
++++ b/src/tools/fft.cpp
+@@ -201,9 +201,21 @@ bool FFT::isRunning(){
+     return m_running; 
+ }
+ 
++#ifdef PROTOPANDAEMU_EMU
++// This backend has no continuous/DMA ADC model, so readAndAnalyse()
++// always times out and m_bandValues is never written. Overridden per
++// band so the launcher's Mic/Equalizer can drive real values instead.
++// emuGetFFTBandOverride() is defined in main.cpp.
++int emuGetFFTBandOverride(int band);
++#endif
++
+ int FFT::getBandValue(int i){
+     if (!m_running)               return 0;
+     if (i < 0 || i >= m_bandCount) return 0;
++#ifdef PROTOPANDAEMU_EMU
++    int override = emuGetFFTBandOverride(i);
++    if (override >= 0) return override;
++#endif
+     return m_bandValues[i];
+ }
+ 

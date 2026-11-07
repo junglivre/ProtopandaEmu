@@ -1,0 +1,85 @@
+diff --git a/src/drawing/ledstrip.cpp b/src/drawing/ledstrip.cpp
+index 9f2adc0..1e1adee 100644
+--- a/src/drawing/ledstrip.cpp
++++ b/src/drawing/ledstrip.cpp
+@@ -3,6 +3,7 @@
+ #include "tools/devices.hpp"
+ #include "config.hpp"
+ #include <Arduino.h>
++#include <string.h>
+ 
+ CRGB* LedStrip::BeginScreen(uint16_t w, uint16_t h, uint8_t maxbrightness){
+     m_screen = new CRGB[w*h];
+@@ -14,7 +15,9 @@ CRGB* LedStrip::BeginScreen(uint16_t w, uint16_t h, uint8_t maxbrightness){
+         m_screen[a] = CRGB(0,0,0);
+     }
+     m_hasScreen = true;
+-    FastLED.show(); 
++#ifndef PROTOPANDAEMU_EMU
++    FastLED.show();
++#endif
+     return m_screen;
+ }
+ 
+@@ -56,7 +59,9 @@ bool LedStrip::BeginDual(uint16_t ledCount, uint16_t secondLedCount, uint8_t max
+         setAllColor(CRGB(0,0,0));
+         
+ 
+-        FastLED.show(); 
++#ifndef PROTOPANDAEMU_EMU
++        FastLED.show();
++#endif
+     }
+     return true;
+ }
+@@ -258,6 +263,33 @@ void LedStrip::Display(){
+     if (!m_enabled){
+         return;
+     }
++#ifdef PROTOPANDAEMU_EMU
++    // QEMU's RMT model completes the FastLED.show() transaction but
++    // doesn't decode WS2812 signal timing, so dump the real computed
++    // buffer instead -- a firmware-side capture, not a wire trace.
++    // Throttled + change-gated to keep steady-state cost low.
++    if (m_ledAmount > 0 && m_leds != nullptr){
++        static uint32_t lastDumpMs = 0;
++        static CRGB lastDumped[256];
++        static bool everDumped = false;
++        uint32_t now = millis();
++        int count = m_ledAmount > 256 ? 256 : m_ledAmount;
++        bool changed = !everDumped || memcmp(lastDumped, m_leds, count * sizeof(CRGB)) != 0;
++        if (changed && (now - lastDumpMs) >= 100){
++            Serial.print("[EMU] LED_DUMP count=");
++            Serial.print(count);
++            Serial.print(" hex=");
++            for (int i = 0; i < count; i++){
++                Serial.printf("%02x%02x%02x", m_leds[i].r, m_leds[i].g, m_leds[i].b);
++            }
++            Serial.print("\n");
++            memcpy(lastDumped, m_leds, count * sizeof(CRGB));
++            everDumped = true;
++            lastDumpMs = now;
++        }
++    }
++    return;
++#endif
+     if (m_ledAmount > 0 && !m_hasScreen){
+         FastLED.show(); 
+     }
+diff --git a/src/tools/displays/ws2812.cpp b/src/tools/displays/ws2812.cpp
+index 66b2851..621abec 100644
+--- a/src/tools/displays/ws2812.cpp
++++ b/src/tools/displays/ws2812.cpp
+@@ -16,8 +16,10 @@ void WS2812BDisplay::flipDma(){
+     setPixelWithFlip(0, 0, 255, 0, 0,  f);
+     setPixelWithFlip(1, 0, 0, 255, 0,  f);
+ 
+-    FastLED.show(); 
+-    FastLED.delay(5); 
++#ifndef PROTOPANDAEMU_EMU
++    FastLED.show();
++    FastLED.delay(5);
++#endif
+ 
+ };
+ 

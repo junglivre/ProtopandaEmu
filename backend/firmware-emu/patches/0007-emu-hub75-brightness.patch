@@ -1,0 +1,57 @@
+diff --git a/src/tools/devices.cpp b/src/tools/devices.cpp
+index 5c44fac..980fc77 100644
+--- a/src/tools/devices.cpp
++++ b/src/tools/devices.cpp
+@@ -255,7 +255,24 @@ bool Devices::CheckPowerLevel(){
+ 
+ void Devices::SetMaxBrightness(uint8_t b){
+   maxBrightness = b;
+-  Devices::Display->setBrightness8(b); 
++  Devices::Display->setBrightness8(b);
++#ifdef PROTOPANDAEMU_EMU
++  // The HUB75 decoder only reads color bit-plane DMA data, not the
++  // real OE/blanking dimming signal, so the launcher preview is always
++  // full-brightness. Dump this choke point instead, throttled and
++  // change-gated (BeginAutoFrame below calls this every frame while
++  // ramping, which would otherwise flood the console).
++  static uint8_t lastDumped = 0;
++  static bool everDumped = false;
++  static uint32_t lastDumpMs = 0;
++  uint32_t now = millis();
++  if ((!everDumped || b != lastDumped) && (now - lastDumpMs) >= 100){
++    Serial.printf("[EMU] HUB75_BRIGHTNESS value=%u\n", (unsigned)b);
++    lastDumped = b;
++    everDumped = true;
++    lastDumpMs = now;
++  }
++#endif
+ }
+ 
+ void Devices::BeginFrame(){
+diff --git a/src/lua/luafunctions/drawingfunctions.cpp b/src/lua/luafunctions/drawingfunctions.cpp
+index e69788f..5bb1d5f 100644
+--- a/src/lua/luafunctions/drawingfunctions.cpp
++++ b/src/lua/luafunctions/drawingfunctions.cpp
+@@ -73,6 +73,22 @@ void setPanelBrightness(uint8_t bright)
+ {
+   Devices::Display->setBrightness8(bright);
+   Devices::Display->setBrightnessExt(bright);
++#ifdef PROTOPANDAEMU_EMU
++  // Runtime brightness changes (settings menu, calibration screens) go
++  // through here, not Devices::SetMaxBrightness() -- its own dump only
++  // ever saw the startup ramp. Same throttle/change-gate, independent
++  // state (different translation unit).
++  static uint8_t lastDumped = 0;
++  static bool everDumped = false;
++  static uint32_t lastDumpMs = 0;
++  uint32_t now = millis();
++  if ((!everDumped || bright != lastDumped) && (now - lastDumpMs) >= 100){
++    Serial.printf("[EMU] HUB75_BRIGHTNESS value=%u\n", (unsigned)bright);
++    lastDumped = bright;
++    everDumped = true;
++    lastDumpMs = now;
++  }
++#endif
+   return;
+ }
+ 

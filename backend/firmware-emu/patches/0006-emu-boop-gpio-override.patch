@@ -1,0 +1,36 @@
+diff --git a/src/lua/luainterface.cpp b/src/lua/luainterface.cpp
+index e64d966..3257fa2 100644
+--- a/src/lua/luainterface.cpp
++++ b/src/lua/luainterface.cpp
+@@ -191,6 +191,19 @@ bool hasLidar()
+   return Devices::HasLidar();
+ }
+ 
++#ifdef PROTOPANDAEMU_EMU
++// Overrides digitalRead() itself (not boop.lua, which loads from the SD
++// card at runtime and isn't ours to patch), so every Lua caller sees it
++// transparently. emuGetGpioOverride() is defined in main.cpp.
++int emuGetGpioOverride(int pin);
++int emuDigitalRead(uint8_t pin)
++{
++  int override = emuGetGpioOverride(pin);
++  if (override >= 0) return override;
++  return digitalRead(pin);
++}
++#endif
++
+ 
+ 
+ static int dumpStackToSerial(lua_State *L)
+@@ -717,7 +730,11 @@ void LuaInterface::RegisterMethods()
+   m_lua->FuncRegister("millis", millis);
+   m_lua->FuncRegister("delay", delay);
+   m_lua->FuncRegister("digitalWrite", digitalWrite);
++  #ifdef PROTOPANDAEMU_EMU
++  m_lua->FuncRegister("digitalRead", emuDigitalRead);
++  #else
+   m_lua->FuncRegister("digitalRead", digitalRead);
++  #endif
+   m_lua->FuncRegister("vTaskDelay", vTaskDelay);
+   m_lua->FuncRegister("analogRead", analogRead);
+   m_lua->FuncRegister("pinMode", pinMode);
