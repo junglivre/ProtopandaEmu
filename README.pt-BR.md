@@ -208,12 +208,16 @@ calcula no console, pra prévia de LED ao vivo abaixo; defina
 `build-firmware-emu.sh` pra ligar, sem editar nenhum arquivo da árvore
 de origem. Uma quarta linha de console, sempre ligada
 (`[EMU] HUB75_BRIGHTNESS value=<0-255>`), reporta toda mudança real de
-brilho do painel (`Devices::SetMaxBrightness`, direta ou a rampa suave
-por quadro), limitada e filtrada por mudança da mesma forma; o launcher
-escala a prévia decodificada (sempre em brilho máximo) por esse valor.
-Nenhuma configuração de firmware, pino ou dado do SD é editado para
-fazer nada disso funcionar — o perfil da placa e as atribuições de GPIO
-continuam reais.
+brilho do painel -- tanto `Devices::SetMaxBrightness` (a rampa suave do
+boot) quanto o binding Lua separado `setPanelBrightness` (o slider de
+brilho do menu de configurações e qualquer outra mudança em tempo real;
+ele escreve direto no driver do display e nunca chama
+`SetMaxBrightness`, por isso precisou do próprio hook) -- limitada e
+filtrada por mudança da mesma forma; o launcher escala a prévia
+decodificada (sempre em brilho máximo) por esse valor. Nenhuma
+configuração de firmware, pino ou dado do SD é editado para fazer nada
+disso funcionar — o perfil da placa e as atribuições de GPIO continuam
+reais.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/caminho/para/seu/fork \
@@ -235,19 +239,22 @@ renderiza as cores reais que `LedStrip::Display()` calculou (não é um
 traço de tráfego de hardware verificado como HUB75/OLED, veja Estado
 atual acima) para cartões SD que acionam saída WS2812 — fica vazia a
 menos que o firmware tenha sido compilado com
-`PROTOPANDAEMU_EMU_LED_DUMP` (veja acima). Abaixo disso, para cartões
-SD com `fft.enabled: true` no `misc.json`, um botão "Mic" começa a
-capturar o microfone do próprio host através do pacote opcional
+`PROTOPANDAEMU_EMU_LED_DUMP` (veja acima). Abaixo disso, um dropdown
+"Input" lista os microfones disponíveis no host
+(`sounddevice.query_devices()`), e um botão "Mic" começa a capturar o
+selecionado através do pacote opcional
 [`sounddevice`](https://python-sounddevice.readthedocs.io/) (`pip
 install sounddevice`; no Linux também precisa da biblioteca de sistema
 `libportaudio2`, ex. `sudo apt install libportaudio2`) e envia o nível
 pela sobreposição `MIC:<energia>\n` acima, escalado pro intervalo
-`fft.speech_min_energy`/`speech_max_energy` do próprio cartão SD; o VU
-meter ao lado mostra o nível ao vivo com um marcador em
+`fft.speech_min_energy`/`speech_max_energy` do próprio cartão SD; um
+texto abaixo do VU meter mostra o valor exato de
 `fft.speech_frist_frame_threshold`, o mesmo ponto de ativação que a
 detecção de fala do firmware usa. Esse é o único recurso do launcher
-fora da biblioteca padrão — o botão fica desabilitado com instruções de
-instalação se o `sounddevice` não estiver presente.
+fora da biblioteca padrão. O botão continua clicável mesmo quando não
+consegue iniciar (esse cartão SD não tem `fft.enabled: true` no
+`misc.json`, ou o `sounddevice` não está instalado) e explica o motivo
+em vez de simplesmente ficar desabilitado.
 
 ### Verifique a saída do OLED
 

@@ -289,3 +289,39 @@
   separately confirmed the console-command parser and the override
   itself add no UART log volume (no echo print, unlike IR/GPIO), since
   this channel streams continuously rather than firing once per action.
+- Fix HUB75 brightness preview never updating after the startup ramp.
+  `Devices::SetMaxBrightness()` (patch 0014's hook) only ever sees the
+  one-time gentle ramp at boot; every runtime brightness change (the
+  settings menu's brightness slider, `screentest.lua`'s calibration
+  screen) goes through the separate `setPanelBrightness()` Lua binding
+  (`src/lua/luafunctions/drawingfunctions.cpp`), which writes straight
+  to the display driver and never calls `SetMaxBrightness()` -- so the
+  launcher's preview was stuck at whatever the startup ramp last set,
+  for the rest of the session. New patch
+  `0016-emu-setpanelbrightness-dump.patch` adds the identical throttled,
+  change-gated dump to that second call site too (independent static
+  state; the two call sites are genuinely different code). Verified
+  against a real boot: a direct Lua-side probe calling
+  `setPanelBrightness(200)` 8s after the startup ramp finished (which
+  had settled on 218) produced `[EMU] HUB75_BRIGHTNESS value=200`
+  immediately, where before this fix nothing would have been logged at
+  all for that call.
+- Fix the Mic button being silently disabled instead of explaining why
+  it can't start. A disabled `ttk.Button` never fires its `command`, so
+  the explanatory dialog for a missing `sounddevice` install or an SD
+  card without `fft.enabled: true` never actually showed -- the button
+  just looked broken. It now stays clickable and shows the real reason
+  on click; capture still doesn't start in either case. Also add an
+  "Input" device dropdown (`sounddevice.query_devices()`'s input-capable
+  devices, "Default input device" first) instead of always opening
+  whatever the host's current default happens to be, and a visible
+  label under the VU meter showing the exact
+  `fft.speech_frist_frame_threshold`/`speech_min_energy`/`max_energy`
+  values driving the marker, instead of leaving the user to guess what
+  the line means. Regression tests:
+  `tests/test_launcher.py::MicButtonExplainsWhyItCannotStartTests`.
+- Add a reminder to `scripts/build-firmware-emu.sh`'s output stating
+  whether `PROTOPANDAEMU_EMU_LED_DUMP` was set for that build (LED strip
+  preview enabled/disabled) -- an easy thing to forget on a rebuild done
+  for an unrelated reason, since it's a per-build env var, not a
+  persisted setting, and nothing else surfaces its state.

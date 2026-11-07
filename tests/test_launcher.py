@@ -773,11 +773,13 @@ class MicThresholdFractionTests(unittest.TestCase):
         self.assertEqual(app._mic_threshold_fraction(), 1.0)
 
 
-class MicButtonReflectsAvailabilityTests(unittest.TestCase):
-    """The Mic button must only be enabled when BOTH this SD card's
-    misc.json actually turns FFT speech detection on and sounddevice is
-    importable -- clicking it in either missing case would silently do
-    nothing useful (no band range to scale onto / no capture library)."""
+class MicButtonExplainsWhyItCannotStartTests(unittest.TestCase):
+    """The Mic button must stay clickable even when it can't actually
+    start (no fft.enabled on this SD card, or sounddevice missing) --
+    disabling it outright hid the reason from the user entirely, since a
+    disabled ttk.Button never fires its command and so never shows the
+    explanation. Clicking in either missing case must explain why and
+    must not start capture."""
 
     def setUp(self):
         try:
@@ -798,41 +800,62 @@ class MicButtonReflectsAvailabilityTests(unittest.TestCase):
         }}), encoding="utf-8")
         return directory
 
-    def test_disabled_when_fft_not_enabled_on_card(self):
-        app = launcher.LauncherApp(self.root)
-        self.root.after_cancel(app._after_id)
-        original = launcher._sounddevice
-        launcher._sounddevice = object()  # pretend it's installed
-        try:
-            with tempfile.TemporaryDirectory() as directory:
-                app.set_hostdir(self._hostdir_with_fft(directory, enabled=False))
-            self.assertEqual(str(app.mic_button["state"]), "disabled")
-        finally:
-            launcher._sounddevice = original
+    def _patch_showerror(self):
+        calls = []
+        original = launcher.messagebox.showerror
+        launcher.messagebox.showerror = lambda title, msg, **kw: calls.append((title, msg))
+        self.addCleanup(setattr, launcher.messagebox, "showerror", original)
+        return calls
 
-    def test_disabled_when_sounddevice_not_installed(self):
+    def test_button_stays_enabled_without_fft_on_card(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        with tempfile.TemporaryDirectory() as directory:
+            app.set_hostdir(self._hostdir_with_fft(directory, enabled=False))
+        self.assertEqual(str(app.mic_button["state"]), "normal")
+
+    def test_device_list_has_default_without_sounddevice(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        self.assertEqual(list(app.mic_device_combo["values"]), ["Default input device"])
+        self.assertEqual(app._selected_mic_device(), None)
+
+    def test_threshold_text_shows_real_config_values(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        with tempfile.TemporaryDirectory() as directory:
+            app.set_hostdir(self._hostdir_with_fft(directory, enabled=True))
+        text = app.mic_threshold_var.get()
+        self.assertIn("40000", text)
+        self.assertIn("50000", text)
+        self.assertIn("200000", text)
+
+    def test_explains_missing_fft_and_does_not_start(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        calls = self._patch_showerror()
+        with tempfile.TemporaryDirectory() as directory:
+            app.set_hostdir(self._hostdir_with_fft(directory, enabled=False))
+        app._start_mic_capture()
+        self.assertEqual(len(calls), 1)
+        self.assertIn("fft.enabled", calls[0][1])
+        self.assertFalse(app._mic_active)
+
+    def test_explains_missing_sounddevice_and_does_not_start(self):
         app = launcher.LauncherApp(self.root)
         self.root.after_cancel(app._after_id)
         original = launcher._sounddevice
-        launcher._sounddevice = None  # pretend it's missing
+        launcher._sounddevice = None
+        calls = self._patch_showerror()
         try:
             with tempfile.TemporaryDirectory() as directory:
                 app.set_hostdir(self._hostdir_with_fft(directory, enabled=True))
-            self.assertEqual(str(app.mic_button["state"]), "disabled")
+            app._start_mic_capture()
         finally:
             launcher._sounddevice = original
-
-    def test_enabled_when_both_present(self):
-        app = launcher.LauncherApp(self.root)
-        self.root.after_cancel(app._after_id)
-        original = launcher._sounddevice
-        launcher._sounddevice = object()
-        try:
-            with tempfile.TemporaryDirectory() as directory:
-                app.set_hostdir(self._hostdir_with_fft(directory, enabled=True))
-            self.assertEqual(str(app.mic_button["state"]), "normal")
-        finally:
-            launcher._sounddevice = original
+        self.assertEqual(len(calls), 1)
+        self.assertIn("sounddevice", calls[0][1])
+        self.assertFalse(app._mic_active)
 
 
 if __name__ == "__main__":

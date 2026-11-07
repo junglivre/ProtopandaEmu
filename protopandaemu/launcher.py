@@ -299,6 +299,8 @@ class LauncherApp:
         self._mic_level = 0.0
         self._mic_level_lock = threading.Lock()
         self._mic_send_job_id: str | None = None
+        self.mic_device_indices: list[int | None] = [None]
+        self.mic_threshold_var = tk.StringVar(value="")
 
         self.hostdir_var = tk.StringVar(value="No folder selected")
         self.firmware_var = tk.StringVar(value="Auto-detected")
@@ -589,17 +591,23 @@ class LauncherApp:
                                     highlightthickness=1, highlightbackground=DARK_BORDER)
         self.led_canvas.grid(row=1, column=0, sticky="ew", pady=(2, 8))
         self.led_canvas.bind("<Configure>", lambda _e: self._redraw_led_strip_from_cache())
-        ttk.Label(lower, text="Microphone (host capture -> FFT level override; line marks the activation threshold)",
+        ttk.Label(lower, text="Microphone (host capture -> FFT level override)",
                  foreground=DARK_FG_MUTED).grid(row=2, column=0, sticky="w")
         mic_row = ttk.Frame(lower)
         mic_row.grid(row=3, column=0, sticky="ew", pady=(2, 8))
-        mic_row.columnconfigure(1, weight=1)
+        mic_row.columnconfigure(2, weight=1)
         self.mic_button = ttk.Button(mic_row, text="Mic", width=6, command=self._toggle_mic)
         self.mic_button.grid(row=0, column=0, padx=(0, 6))
+        ttk.Label(mic_row, text="Input:", foreground=DARK_FG_MUTED).grid(row=0, column=1, padx=(0, 4))
+        self.mic_device_combo = ttk.Combobox(mic_row, state="readonly", width=30)
+        self.mic_device_combo.grid(row=0, column=2, sticky="ew")
         self.mic_canvas = tk.Canvas(mic_row, height=20, bg=DARK_CANVAS_BG,
                                     highlightthickness=1, highlightbackground=DARK_BORDER)
-        self.mic_canvas.grid(row=0, column=1, sticky="ew")
+        self.mic_canvas.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(4, 0))
         self.mic_canvas.bind("<Configure>", lambda _e: self._draw_vu_meter())
+        ttk.Label(mic_row, textvariable=self.mic_threshold_var, foreground=DARK_FG_MUTED).grid(
+            row=2, column=0, columnspan=3, sticky="w", pady=(2, 0))
+        self._populate_mic_devices()
         ttk.Label(lower, textvariable=self.uart_var, foreground=DARK_FG_MUTED).grid(
             row=4, column=0, sticky="w")
         self.uart_text = tk.Text(lower, height=9, width=149, state="disabled", wrap="none",
@@ -680,9 +688,13 @@ class LauncherApp:
                         fft.get("speech_frist_frame_threshold", self.fft_frist_frame_threshold))
             except (OSError, json.JSONDecodeError, AttributeError, TypeError, ValueError):
                 pass
-        if hasattr(self, "mic_button"):
-            can_use_mic = self.fft_enabled and _sounddevice is not None
-            self.mic_button.configure(state="normal" if can_use_mic else "disabled")
+        if hasattr(self, "mic_threshold_var"):
+            if self.fft_enabled:
+                self.mic_threshold_var.set(
+                    f"Activation threshold: {self.fft_frist_frame_threshold} "
+                    f"(speech range {self.fft_min_energy}-{self.fft_max_energy})")
+            else:
+                self.mic_threshold_var.set("This SD card's misc.json does not have fft.enabled set to true.")
         if hasattr(self, "mic_canvas"):
             self._draw_vu_meter()
 
@@ -888,7 +900,36 @@ class LauncherApp:
         else:
             self._start_mic_capture()
 
+    def _populate_mic_devices(self) -> None:
+        self.mic_device_indices = [None]
+        names = ["Default input device"]
+        if _sounddevice is not None:
+            try:
+                for index, dev in enumerate(_sounddevice.query_devices()):
+                    if dev.get("max_input_channels", 0) > 0:
+                        self.mic_device_indices.append(index)
+                        names.append(dev.get("name") or f"Device {index}")
+            except Exception:
+                pass  # leave just "Default input device"; _start_mic_capture()
+                      # reports any real open failure when the user clicks Mic
+        self.mic_device_combo.configure(values=names)
+        self.mic_device_combo.current(0)
+
+    def _selected_mic_device(self) -> int | None:
+        choice = self.mic_device_combo.current()
+        if choice < 0 or choice >= len(self.mic_device_indices):
+            return None
+        return self.mic_device_indices[choice]
+
     def _start_mic_capture(self) -> None:
+        if not self.fft_enabled:
+            messagebox.showerror(
+                "Microphone not usable for this SD card",
+                "This SD card's misc.json does not have fft.enabled set to "
+                "true, so the firmware never reads FFT band energy -- "
+                "there is nothing for a captured level to drive.",
+                parent=self.root)
+            return
         if _sounddevice is None:
             messagebox.showerror(
                 "Microphone unavailable",
@@ -907,11 +948,12 @@ class LauncherApp:
 
         try:
             self._mic_stream = _sounddevice.InputStream(
-                channels=1, samplerate=16000, blocksize=800, callback=audio_callback)
+                channels=1, samplerate=16000, blocksize=800,
+                device=self._selected_mic_device(), callback=audio_callback)
             self._mic_stream.start()
         except Exception as exc:
             self._mic_stream = None
-            self.status_var.set(f"Could not open microphone: {exc}")
+            messagebox.showerror("Could not open microphone", str(exc), parent=self.root)
             return
         self._mic_active = True
         self.mic_button.configure(style="BoopActive.TButton")

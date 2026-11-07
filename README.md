@@ -202,11 +202,15 @@ below; set `PLATFORMIO_BUILD_FLAGS="-DPROTOPANDAEMU_EMU_LED_DUMP"`
 before running `build-firmware-emu.sh` to turn it on, no source tree
 edits needed. A fourth, always-on console line
 (`[EMU] HUB75_BRIGHTNESS value=<0-255>`) reports every real panel
-brightness change (`Devices::SetMaxBrightness`, direct or the gentle
-per-frame ramp), throttled and change-gated the same way; the launcher
-scales its decoded (always full-brightness) preview by that value. No
-firmware config, pin assignment, or SD data is edited to make any of
-this work — board profile and GPIO assignments stay real.
+brightness change -- both `Devices::SetMaxBrightness` (the startup
+gentle ramp) and the separate `setPanelBrightness` Lua binding (the
+settings menu's brightness slider and any other runtime change; it
+writes straight to the display driver and never calls
+`SetMaxBrightness`, so it needed its own hook) -- throttled and
+change-gated the same way; the launcher scales its decoded (always
+full-brightness) preview by that value. No firmware config, pin
+assignment, or SD data is edited to make any of this work — board
+profile and GPIO assignments stay real.
 
 ```bash
 PATH="$HOME/.platformio/penv/bin:$PATH" PROTO_PANDA_FIRMWARE_SRC=/path/to/your/fork \
@@ -227,18 +231,20 @@ preview, a LED strip row renders the real colors `LedStrip::Display()`
 computed (not a hardware-traffic trace like HUB75/OLED, see Current
 status above) for SD cards that drive WS2812 output -- it stays empty
 unless the firmware was built with `PROTOPANDAEMU_EMU_LED_DUMP` (see
-above). Below that, for SD cards with `misc.json`'s `fft.enabled: true`,
-a "Mic" button starts capturing the host's own microphone through the
-optional [`sounddevice`](https://python-sounddevice.readthedocs.io/)
-package (`pip install sounddevice`; on Linux it also needs the
-`libportaudio2` system library, e.g. `sudo apt install libportaudio2`)
-and streams its level into the `MIC:<energy>\n` override above, scaled
-into the SD card's own `fft.speech_min_energy`/`speech_max_energy`
-range; the VU meter next to it shows the live level with a marker at
-`fft.speech_frist_frame_threshold`, the same activation point the
-firmware's own speech detection uses. This is the only launcher feature
-outside the standard library -- the button stays disabled with install
-instructions if `sounddevice` isn't present.
+above). Below that, an "Input" dropdown lists the host's available
+microphones (`sounddevice.query_devices()`), and a "Mic" button starts
+capturing the selected one through the optional
+[`sounddevice`](https://python-sounddevice.readthedocs.io/) package
+(`pip install sounddevice`; on Linux it also needs the `libportaudio2`
+system library, e.g. `sudo apt install libportaudio2`) and streams its
+level into the `MIC:<energy>\n` override above, scaled into the SD
+card's own `fft.speech_min_energy`/`speech_max_energy` range; a label
+under the VU meter shows the exact `fft.speech_frist_frame_threshold`
+value, the same activation point the firmware's own speech detection
+uses. This is the only launcher feature outside the standard library.
+The button stays clickable even when it can't start (this SD card's
+`misc.json` doesn't have `fft.enabled: true`, or `sounddevice` isn't
+installed) and explains why instead of just sitting there disabled.
 
 ### Verify the OLED output
 
