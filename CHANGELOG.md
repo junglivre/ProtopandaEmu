@@ -194,3 +194,16 @@
   SD-card-content-independent signal the guest loop is actually
   consuming console input). Regression tests:
   `tests/test_launcher.py::DeferredBoopDefaultOverrideTests`.
+- Add a live LED strip preview to the launcher for SD cards that drive
+  WS2812 output. Firmware-emu patch 0013 dumps `LedStrip::Display()`'s
+  real computed color buffer -- exactly what the real strip would show
+  -- as a throttled, change-gated `[EMU] LED_DUMP ...` console line,
+  since QEMU's own RMT model (patch `0009-esp32s3-rmt-tx.patch`,
+  backend/qemu) intentionally doesn't decode WS2812 signal timing (out
+  of scope there), so there is no real wire-level traffic to capture the
+  way HUB75/OLED's dumps do; this is a firmware-buffer capture instead,
+  noted as such in the GUI. Regression tests:
+  `tests/test_launcher.py::ReadLatestLedDumpTests`,
+  `DrawLedStripRendersEachColorTests`. Verified against a real boot on
+  the user's own SD card: a rotating two-segment behavior streamed live,
+  distinct colors per dump, matching the boot log's own LED setup.

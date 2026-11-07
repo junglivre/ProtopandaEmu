@@ -454,5 +454,76 @@ class DrawHub75SplitsLeftRightHalvesTests(unittest.TestCase):
         self.assertEqual(app._hub75_left_photo.get(last_left_x, 0), (255, 0, 0))
 
 
+class ReadLatestLedDumpTests(unittest.TestCase):
+    """_read_latest_led_dump() decodes firmware-emu patch 0013's LED_DUMP
+    console line the same way _read_latest_dumps() handles OLED/HUB75,
+    including skipping a truncated tail match in favor of an earlier
+    complete one."""
+
+    def test_decodes_the_newest_complete_dump(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text(
+                "boot noise\n"
+                "[EMU] LED_DUMP count=2 hex=ff0000" + "00ff00" + "\n"
+                "[EMU] LED_DUMP count=1 hex=0000ff\n",
+                encoding="utf-8",
+            )
+            dump = launcher._read_latest_led_dump(path)
+            self.assertEqual(dump, {"count": 1, "data": bytes.fromhex("0000ff")})
+
+    def test_skips_a_truncated_tail_match(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "qemu.uart.log"
+            path.write_text(
+                "[EMU] LED_DUMP count=1 hex=ff0000\n"
+                "[EMU] LED_DUMP count=2 hex=00ff",  # truncated, missing the rest
+                encoding="utf-8",
+            )
+            dump = launcher._read_latest_led_dump(path)
+            self.assertEqual(dump, {"count": 1, "data": bytes.fromhex("ff0000")})
+
+    def test_missing_file_returns_none(self):
+        dump = launcher._read_latest_led_dump(Path("/nonexistent/qemu.uart.log"))
+        self.assertIsNone(dump)
+
+
+class DrawLedStripRendersEachColorTests(unittest.TestCase):
+    """_draw_led_strip() must render one pixel per LED, in order, matching
+    the dump's own RGB bytes -- not an average, not just the first/last."""
+
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+            self.root.withdraw()
+        except tk.TclError as exc:
+            self.skipTest(f"no usable display for Tk: {exc}")
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_renders_distinct_colors_in_order(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+
+        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+        data = b"".join(bytes(c) for c in colors)
+        dump = {"count": len(colors), "data": data}
+        app._draw_led_strip(dump)
+
+        self.assertIsNotNone(app._led_photo)
+        photo = app._led_photo
+        scale = photo.width() // len(colors)
+        self.assertGreaterEqual(scale, 1)
+        for index, color in enumerate(colors):
+            self.assertEqual(photo.get(index * scale, 0), color)
+
+    def test_mismatched_byte_count_is_ignored_not_crashed(self):
+        app = launcher.LauncherApp(self.root)
+        self.root.after_cancel(app._after_id)
+        app._draw_led_strip({"count": 3, "data": b"\x00\x01"})  # too short
+        self.assertIsNone(app._led_photo)
+
+
 if __name__ == "__main__":
     unittest.main()
