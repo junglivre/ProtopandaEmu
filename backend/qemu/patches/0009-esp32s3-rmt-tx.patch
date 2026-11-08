@@ -9,6 +9,13 @@ the channel TX_END bit in INT_RAW; INT_ENA/ST/CLR behave as the guest
 driver expects and the line asserts while (RAW & ENA). WS2812 signal
 fidelity is out of scope - the HUB75 panel is the emulated display.
 
+The device was object_initialize_child'd but never realized, mapped,
+or IRQ-connected, which qdev_assert_realized_properly() (always run
+after board init) catches with a fatal assertion on every boot. Fixed
+by adding the missing realize/map/IRQ block, placed and shaped the
+same way as the existing i2c0 block right above it, and removing the
+now-superseded stock esp32s3.rmt unimp stub it was silently racing.
+
 --- a/hw/misc/meson.build
 +++ b/hw/misc/meson.build
 @@ -168,6 +168,7 @@
@@ -45,6 +52,34 @@ fidelity is out of scope - the HUB75 panel is the emulated display.
      object_initialize_child(OBJECT(ss), "toy_hub75", &ss->toy_hub75, TYPE_ESP32S3_TOY_HUB75);
  
      object_initialize_child(OBJECT(ss), "clock", &ss->clock, TYPE_ESP32S3_CLOCK);
+@@ -807,8 +810,18 @@
+                                 TYPE_ESP32S3_TOY_SSD1306, 0x3c);
+     }
+ 
++    /* RMT: object_initialize_child'd above but never realized/mapped by
++     * the patch that added it, which qdev_assert_realized_properly()
++     * (called after board init) catches. Supersedes the stock
++     * esp32s3.rmt unimp stub below, which has been removed. */
++    {
++        sysbus_realize(SYS_BUS_DEVICE(&ss->rmt), &error_fatal);
++        MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&ss->rmt), 0);
++        memory_region_add_subregion_overlap(sys_mem, DR_REG_RMT_BASE, mr, 0);
++        sysbus_connect_irq(SYS_BUS_DEVICE(&ss->rmt), 0,
++                           qdev_get_gpio_in(intmatrix_dev, ETS_RMT_INTR_SOURCE));
++    }
+ 
+-
+     /* GDMA Realization */
+     {
+         /* GDMA descriptor addresses are absolute ESP32-S3 system addresses. */
+@@ -905,7 +918,6 @@
+         memory_region_add_subregion_overlap(sys_mem, esp32s3_memmap[ESP32S3_MEMREGION_FRAMEBUF].base, &ss->rgb.vram, 0);
+     }
+ 
+-    esp32s3_soc_add_unimp_device(sys_mem, "esp32s3.rmt", DR_REG_RMT_BASE, 0x1000);
+     esp32s3_soc_add_unimp_device(sys_mem, "esp32s3.iomux", DR_REG_IO_MUX_BASE, 0x2000);
+ 
+     
 --- a/hw/misc/esp32s3_rmt.c
 +++ b/hw/misc/esp32s3_rmt.c
 @@ -0,0 +1,162 @@

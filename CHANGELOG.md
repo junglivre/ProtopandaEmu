@@ -95,6 +95,19 @@
 - Add a minimal ESP32-S3 RMT TX device model
   (`backend/qemu/patches/0009-esp32s3-rmt-tx.patch`) so FastLED's
   `leds.begin()` RMT wait-loop no longer stalls boot indefinitely.
+- Fix a fatal crash on every boot
+  (`qdev_assert_realized_properly_cb: Assertion 'dev->realized' failed`,
+  right after "Adding SPI flash device"): the RMT TX device model above
+  was `object_initialize_child`'d into the QOM tree but never realized,
+  mapped, or IRQ-connected, which QEMU's own post-board-init sanity
+  check catches unconditionally. This had been a latent bug in the
+  patch since before it was last touched; it only started crashing
+  once the experimental QEMU tree was rebuilt from scratch again, long
+  after the binary in use had gone stale. Fixed by completing the
+  missing realize/map/IRQ block and removing the now-superseded stock
+  `esp32s3.rmt` unimp stub it raced against. Verified end to end on a
+  real boot, including that the HUB75/LED/clock/tone dumps and the SD
+  `frames.bulk` rebuild still all work.
 - Build an emu-specific firmware variant from the user's own
   `Proto-panda` `alt` fork, gated entirely behind `-DPROTOPANDAEMU_EMU=1`
   (`backend/firmware-emu/patches/`, `scripts/build-firmware-emu.sh`): the
